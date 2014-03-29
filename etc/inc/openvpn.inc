@@ -40,7 +40,7 @@
 	
 	DISABLE_PHP_LINT_CHECKING
 	
-	pfSense_BUILDER_BINARIES:	/usr/local/sbin/openvpn	/usr/local/bin/openssl	/sbin/ifconfig
+	pfSense_BUILDER_BINARIES:	/usr/local/sbin/openvpn	/usr/bin/openssl	/sbin/ifconfig
 	pfSense_MODULE:	openvpn
 
 */
@@ -115,7 +115,7 @@ function openvpn_create_key() {
 
 function openvpn_create_dhparams($bits) {
 
-	$fp = popen("/usr/local/bin/openssl dhparam {$bits} 2>/dev/null", "r");
+	$fp = popen("/usr/bin/openssl dhparam {$bits} 2>/dev/null", "r");
 	if (!$fp)
 		return false;
 
@@ -225,7 +225,7 @@ function openvpn_get_digestlist() {
 
 function openvpn_get_engines() {
 	$openssl_engines = array('none' => 'No Hardware Crypto Acceleration');
-	exec("/usr/local/bin/openssl engine -t -c", $openssl_engine_output);
+	exec("/usr/bin/openssl engine -t -c", $openssl_engine_output);
 	$openssl_engine_output = implode("\n", $openssl_engine_output);
 	$openssl_engine_output = preg_replace("/\\n\\s+/", "|", $openssl_engine_output);
 	$openssl_engine_output = explode("\n", $openssl_engine_output);
@@ -416,17 +416,17 @@ function openvpn_reconfigure($mode, $settings) {
 		$devname = "ovpnc{$vpnid}";
 
 	/* is our device already configured */
-	if (mwexec("/sbin/ifconfig {$devname}", true)) {
+	if (does_interface_exist($devname)) {
 
 		/* create the tap device if required */
 		if (!file_exists("/dev/{$tunname}"))
-			exec("/sbin/ifconfig {$tunname} create");
+			exec("/sbin/ifconfig " . escapeshellarg($tunname) . " create");
 
 		/* rename the device */
-		mwexec("/sbin/ifconfig {$tunname} name {$devname}");
+		mwexec("/sbin/ifconfig " . escapeshellarg($tunname) . " name " . escapeshellarg($devname));
 
 		/* add the device to the openvpn group */
-		mwexec("/sbin/ifconfig {$devname} group openvpn");
+		mwexec("/sbin/ifconfig " . escapeshellarg($devname) . " group openvpn");
 	}
 
 	$pfile = $g['varrun_path'] . "/openvpn_{$mode_id}.pid";
@@ -582,36 +582,20 @@ function openvpn_reconfigure($mode, $settings) {
 				if (stristr($conf, "server-bridge") === false)
 					$conf .= "username-as-common-name\n";
 				if (!empty($settings['authmode'])) {
-					$authcfgs = explode(",", $settings['authmode']);
-					$sed = "\$authmodes=array(";
-					$firstsed = 0;
-					foreach ($authcfgs as $authcfg) {
-						if ($firstsed > 0)
-							$sed .= ",";
-						$firstsed = 1;
-						$sed .= "\"{$authcfg}\"";
-					}
-					$sed .= ");\\\n";
+					$strictusercn = "false";
 					if ($settings['strictusercn'])
-						$sed .= "\$strictusercn = true;";
-					$sed .= " \$modeid = \"{$mode_id}\";";
-					mwexec("/bin/cat /etc/inc/openvpn.auth-user.php | /usr/bin/sed 's/\/\/<template>/{$sed}/g' >  {$g['varetc_path']}/openvpn/{$mode_id}.php");
-					mwexec("/bin/chmod a+x {$g['varetc_path']}/openvpn/{$mode_id}.php");
-					$conf .= "auth-user-pass-verify {$g['varetc_path']}/openvpn/{$mode_id}.php via-env\n";
+						$strictusercn = "true";
+					$conf .= "auth-user-pass-verify /usr/local/sbin/ovpn_auth_verify user '{$settings['authmode']}' {$strictusercn} {$mode_id} via-env\n";
 				}
 				break;
 		}
 		if (!isset($settings['cert_depth']) && (strstr($settings['mode'], 'tls')))
 			$settings['cert_depth'] = 1;
 		if (is_numeric($settings['cert_depth'])) {
-			$sed = "";
 			$cert = lookup_cert($settings['certref']);
-			$servercn = cert_get_cn($cert['crt']);
-			$sed .= "\$server_cn = \"{$servercn}\";\\\n";
-			$sed .= "\$allowed_depth = {$settings['cert_depth']};\\\n";
-			mwexec("/bin/cat /etc/inc/openvpn.tls-verify.php | /usr/bin/sed 's/\/\/<template>/{$sed}/g' >  {$g['varetc_path']}/openvpn/{$mode_id}.tls-verify.php");
-			mwexec("/bin/chmod a+x {$g['varetc_path']}/openvpn/{$mode_id}.tls-verify.php");
-			$conf .= "tls-verify {$g['varetc_path']}/openvpn/{$mode_id}.tls-verify.php\n";
+			/* XXX: Seems not used at all! */
+			$servercn = urlencode(cert_get_cn($cert['crt']));
+			$conf .= "tls-verify /usr/local/sbin/ovpn_auth_verify tls '{$servercn}' {$settings['cert_depth']} via-env\n";
 		}
 
 		// The local port to listen on
@@ -698,6 +682,14 @@ function openvpn_reconfigure($mode, $settings) {
 				$conf .= "ifconfig-ipv6 {$ipv6_2} {$prefix}\n";
 		}
 
+		if ($settings['auth_user'] && $settings['auth_pass']) {
+			$up_file = "{$g['varetc_path']}/openvpn/{$mode_id}.up";
+			$conf .= "auth-user-pass {$up_file}\n";
+			$userpass = "{$settings['auth_user']}\n";
+			$userpass .= "{$settings['auth_pass']}\n";
+			file_put_contents($up_file, $userpass);
+		}
+		
 		if ($settings['proxy_addr']) {
 			$conf .= "http-proxy {$settings['proxy_addr']} {$settings['proxy_port']}";
 			if ($settings['proxy_authtype'] != "none") {
@@ -825,7 +817,7 @@ function openvpn_restart($mode, $settings) {
 	/* start the new process */
 	$fpath = $g['varetc_path']."/openvpn/{$mode_id}.conf";
 	openvpn_clear_route($mode, $settings);
-	mwexec_bg("/usr/local/sbin/openvpn --config {$fpath}");
+	mwexec_bg("/usr/local/sbin/openvpn --config " . escapeshellarg($fpath));
 
 	if (!$g['booting'])
 		send_event("filter reload");
@@ -861,13 +853,13 @@ function openvpn_delete($mode, & $settings) {
 	}
 
 	/* remove the device from the openvpn group */
-	mwexec("/sbin/ifconfig {$devname} -group openvpn");
+	mwexec("/sbin/ifconfig " . escapeshellarg($devname) . " -group openvpn");
 
 	/* restore the original adapter name */
-	mwexec("/sbin/ifconfig {$devname} name {$tunname}");
+	mwexec("/sbin/ifconfig " . escapeshellarg($devname) . " name " . escapeshellarg($tunname));
 
 	/* remove the configuration files */
-	mwexec("/bin/rm {$g['varetc_path']}/openvpn/{$mode_id}.*");
+	array_map('unlink', glob("{$g['varetc_path']}/openvpn/{$mode_id}.*"));
 }
 
 function openvpn_cleanup_csc($common_name) {
@@ -908,6 +900,22 @@ function openvpn_resync_csc(& $settings) {
 			$conf .= "ifconfig-push {$clientip} {$serverip}\n";
 		else
 			$conf .= "ifconfig-push {$clientip} {$mask}\n";
+	}
+
+	if ($settings['local_network']) {
+		$conf .= openvpn_gen_routes($settings['local_network'], "ipv4", true);
+	}
+	if ($settings['local_networkv6']) {
+		$conf .= openvpn_gen_routes($settings['local_networkv6'], "ipv6", true);
+	}
+
+	// Add a remote network iroute if set
+	if (openvpn_validate_cidr($settings['remote_network'], "", true, "ipv4") === FALSE) {
+		$conf .= openvpn_gen_routes($settings['remote_network'], "ipv4", false, true);
+	}
+	// Add a remote network iroute if set
+	if (openvpn_validate_cidr($settings['remote_networkv6'], "", true, "ipv6") === FALSE) {
+		$conf .= openvpn_gen_routes($settings['remote_networkv6'], "ipv6", false, true);
 	}
 
 	openvpn_add_dhcpopts($settings, $conf);
@@ -1322,7 +1330,7 @@ function openvpn_clear_route($mode, $settings) {
 	}
 }
 
-function openvpn_gen_routes($value, $ipproto = "ipv4", $push = false) {
+function openvpn_gen_routes($value, $ipproto = "ipv4", $push = false, $iroute = false) {
 	$routes = "";
 	if (empty($value))
 		return "";
@@ -1330,9 +1338,9 @@ function openvpn_gen_routes($value, $ipproto = "ipv4", $push = false) {
 
 	foreach ($networks as $network) {
 		if ($ipproto == "ipv4")
-			$route = openvpn_gen_route_ipv4($network);
+			$route = openvpn_gen_route_ipv4($network, $iroute);
 		else
-			$route = openvpn_gen_route_ipv6($network);
+			$route = openvpn_gen_route_ipv6($network, $iroute);
 
 		if ($push)
 			$routes .= "push \"{$route}\"\n";
@@ -1342,17 +1350,19 @@ function openvpn_gen_routes($value, $ipproto = "ipv4", $push = false) {
 	return $routes;
 }
 
-function openvpn_gen_route_ipv4($network) {
+function openvpn_gen_route_ipv4($network, $iroute = false) {
+	$i = ($iroute) ? "i" : "";
 	list($ip, $mask) = explode('/', trim($network));
 	$mask = gen_subnet_mask($mask);
-	return "route $ip $mask";
+	return "{$i}route $ip $mask";
 }
 
-function openvpn_gen_route_ipv6($network) {
+function openvpn_gen_route_ipv6($network, $iroute = false) {
+	$i = ($iroute) ? "i" : "";
 	list($ipv6, $prefix) = explode('/', trim($network));
 	if (empty($prefix))
 		$prefix = "128";
-	return "route-ipv6 ${ipv6}/${prefix}";
+	return "{$i}route-ipv6 ${ipv6}/${prefix}";
 }
 
 function openvpn_get_settings($mode, $vpnid) {

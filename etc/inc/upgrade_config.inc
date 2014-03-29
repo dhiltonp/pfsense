@@ -1991,7 +1991,7 @@ function upgrade_054_to_055() {
 		/* restore the databases, if we have one */
 		if (restore_rrd()) {
 			/* Make sure to move the rrd backup out of the way. We will make a new one after converting. */
-			exec("/bin/mv {$g['cf_conf_path']}/rrd.tgz {$g['cf_conf_path']}/backup");
+			rename("{$g['cf_conf_path']}/rrd.tgz", "{$g['cf_conf_path']}/backup");
 		}
 	}
 
@@ -2657,7 +2657,7 @@ function upgrade_080_to_081() {
 		/* restore the databases, if we have one */
 		if (restore_rrd()) {
 			/* Make sure to move the rrd backup out of the way. We will make a new one after converting. */
-			exec("/bin/mv {$g['cf_conf_path']}/rrd.tgz {$g['cf_conf_path']}/backup");
+			rename("{$g['cf_conf_path']}/rrd.tgz", "{$g['cf_conf_path']}/backup");
 		}
 	}
 
@@ -2788,8 +2788,8 @@ function upgrade_080_to_081() {
 		mwexec("$rrdtool restore -f {$g['tmp_path']}/{$xmldumpnew} {$rrddbpath}/{$database} 2>&1");
 		unset($xml);
 		# Default /tmp tmpfs is ~40mb, do not leave temp files around
-		unlink("{$g['tmp_path']}/{$xmldump}");
-		unlink("{$g['tmp_path']}/{$xmldumpnew}");
+		unlink_if_exists("{$g['tmp_path']}/{$xmldump}");
+		unlink_if_exists("{$g['tmp_path']}/{$xmldumpnew}");
 	}
 	enable_rrd_graphing();
 	/* Let's save the RRD graphs after we run enable RRD graphing */
@@ -2818,6 +2818,7 @@ function upgrade_082_to_083() {
 		$config['captiveportal']['cpzone'] = array();
 		$config['captiveportal']['cpzone'] = $tmpcp;
 		$config['captiveportal']['cpzone']['zoneid'] = 8000;
+		$config['captiveportal']['cpzone']['zone'] = "cpzone";
 		if ($config['captiveportal']['cpzone']['auth_method'] == "radius")
 			$config['captiveportal']['cpzone']['radius_protocol'] = "PAP";
 	}
@@ -3106,7 +3107,7 @@ function upgrade_095_to_096() {
 		/* restore the databases, if we have one */
 		if (restore_rrd()) {
 			/* Make sure to move the rrd backup out of the way. We will make a new one after converting. */
-			exec("/bin/mv {$g['cf_conf_path']}/rrd.tgz {$g['cf_conf_path']}/backup");
+			rename("{$g['cf_conf_path']}/rrd.tgz", "{$g['cf_conf_path']}/backup");
 		}
 	}
 
@@ -3165,6 +3166,22 @@ function upgrade_099_to_100() {
 function upgrade_100_to_101() {
 	global $config, $g;
 
+	if (!is_array($config['voucher']))
+		return;
+
+	foreach ($config['voucher'] as $cpzone => $cp) {
+		if (!is_array($cp['roll']))
+			continue;
+		foreach ($cp['roll'] as $ridx => $rcfg) {
+			if (!empty($rcfg['comment']))
+				$config['voucher'][$cpzone]['roll'][$ridx]['descr'] = $rcfg['comment'];
+		}
+	}
+}
+
+function upgrade_101_to_102() {
+	global $config, $g;
+
 	if (!is_array($config['captiveportal']))
 		return;
 
@@ -3175,11 +3192,8 @@ function upgrade_100_to_101() {
 		foreach ($cp['passthrumac'] as $idx => $passthrumac)
 			$config['captiveportal'][$cpzone]['passthrumac'][$idx]['action'] = 'pass';
 	}
-}
 
-/* Convert OpenVPN Compression option to the new style */
-function upgrade_101_to_102() {
-	global $config;
+	/* Convert OpenVPN Compression option to the new style */
 	// Nothing to do if there is no OpenVPN tag
 	if (!isset($config['openvpn']) || !is_array($config['openvpn']))
 		return;
@@ -3261,6 +3275,59 @@ function upgrade_104_to_105() {
 				$zoneid += 2;
 			}
 		}
+	}
+}
+
+function upgrade_105_to_106() {
+	global $config;
+
+	if (is_array($config['virtualip']) && is_array($config['virtualip']['vip'])) {
+		foreach ($config['virtualip']['vip'] as $vipidx => $vip) {
+			if ($vip['mode'] == "ipalias" && strstr($vip['interface'], "_vip")) {
+				/* Convert to a carp with same properties as its carp version */
+				$converted = false;
+				foreach ($config['virtualip']['vip'] as $bvip) {
+					if ($bvip['mode'] == "carp" && "{$bvip['interface']}_vip{$bvip['vhid']}" == $vip['interface']) {
+						$ipaaddr = $vip['subnet'];
+						$ipamask = $vip['subnet_bits'];
+						$config['virtualip']['vip'][$vipidx] = $bvip;
+						$config['virtualip']['vip'][$vipidx]['subnet'] = $ipaaddr;
+						$config['virtualip']['vip'][$vipidx]['subnet_bits'] = $ipamask;
+						$converted = true;
+						break;
+					}
+				}
+				if ($converted === false)
+					log_error("WARNING: IPalias {$vip['subnet']}/{$vip['subnet_bits']} was not completed successfully. Upgrading it yourself is the only remaining option!");
+			}
+		}
+		unset($vip, $bvip, $vipidx);
+	}
+}
+
+function upgrade_106_to_107() {
+	global $config;
+
+	if (is_array($config['filter']) && is_array($config['filter']['rule'])) {
+		$tracker = (int)microtime(true);
+		foreach ($config['filter']['rule'] as $ridx => $rule) {
+			if (empty($rule['tracker'])) {
+				$config['filter']['rule'][$ridx]['tracker'] = $tracker;
+				$tracker++;
+			}
+		}
+		unset($tracker, $ridx);
+	}
+	if (is_array($config['nat']) && is_array($config['nat']['rule'])) {
+		$tracker = (int)microtime(true);
+		foreach ($config['nat']['rule'] as $ridx => $rule) {
+			if (empty($rule['tracker'])) {
+				$config['nat']['rule'][$ridx]['tracker'] = $tracker;
+				$tracker++;
+			}
+
+		}
+		unset($tracker, $ridx);
 	}
 }
 

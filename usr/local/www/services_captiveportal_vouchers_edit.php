@@ -67,8 +67,9 @@ if (!is_array($config['voucher'][$cpzone]['roll'])) {
 }
 $a_roll = &$config['voucher'][$cpzone]['roll'];
 
-$id = $_GET['id'];
-if (isset($_POST['id']))
+if (is_numericint($_GET['id']))
+	$id = $_GET['id'];
+if (isset($_POST['id']) && is_numericint($_POST['id']))
 	$id = $_POST['id'];
 
 if (isset($id) && $a_roll[$id]) {
@@ -76,7 +77,7 @@ if (isset($id) && $a_roll[$id]) {
 	$pconfig['number'] = $a_roll[$id]['number'];
 	$pconfig['count'] = $a_roll[$id]['count'];
 	$pconfig['minutes'] = $a_roll[$id]['minutes'];
-	$pconfig['comment'] = $a_roll[$id]['comment'];
+	$pconfig['descr'] = $a_roll[$id]['descr'];
 }
 
 $maxnumber = (1<<$config['voucher'][$cpzone]['rollbits']) -1;    // Highest Roll#
@@ -118,7 +119,7 @@ if ($_POST) {
         $rollent['zone']  = $_POST['zone'];
         $rollent['number']  = $_POST['number'];
         $rollent['minutes'] = $_POST['minutes'];
-        $rollent['comment'] = $_POST['comment'];
+        $rollent['descr'] = $_POST['descr'];
 
         /* New Roll or modified voucher count: create bitmask */
 	$voucherlck = lock("voucher{$cpzone}");
@@ -171,7 +172,7 @@ include("head.inc");
 	  <td width="22%" valign="top" class="vncellreq"><?=gettext("Roll"); ?>#</td>
 	  <td width="78%" class="vtable"> 
 		<?=$mandfldhtml;?><input name="number" type="text" class="formfld" id="number" size="10" value="<?=htmlspecialchars($pconfig['number']);?>"> 
-        <br>
+        <br />
         <span class="vexpl"><?=gettext("Enter the Roll"); ?># (0..<?=htmlspecialchars($maxnumber);?>) <?=gettext("found on top of the generated/printed vouchers"); ?>.</span>
 		</td>
 	</tr>
@@ -179,7 +180,7 @@ include("head.inc");
 	  <td width="22%" valign="top" class="vncellreq"><?=gettext("Minutes per Ticket"); ?></td>
 	  <td width="78%" class="vtable"> 
 		<?=$mandfldhtml;?><input name="minutes" type="text" class="formfld" id="minutes" size="10" value="<?=htmlspecialchars($pconfig['minutes']);?>"> 
-        <br>
+        <br />
         <span class="vexpl"><?=gettext("Defines the time in minutes that a user is allowed access. The clock starts ticking the first time a voucher is used for authentication"); ?>.</span>
 	   </td>
 	</tr>
@@ -187,15 +188,15 @@ include("head.inc");
 	  <td width="22%" valign="top" class="vncellreq"><?=gettext("Count"); ?></td>
 	  <td width="78%" class="vtable"> 
 		<?=$mandfldhtml;?><input name="count" type="text" class="formfld" id="count" size="10" value="<?=htmlspecialchars($pconfig['count']);?>"> 
-        <br>
+        <br />
         <span class="vexpl"><?=gettext("Enter the number of vouchers"); ?> (1..<?=htmlspecialchars($maxcount);?>) <?=gettext("found on top of the generated/printed vouchers. WARNING: Changing this number for an existing Roll will mark all vouchers as unused again"); ?>.</span>
 		</td>
 	</tr>
 	<tr> 
 	  <td width="22%" valign="top" class="vncell"><?=gettext("Comment"); ?></td>
 	  <td width="78%" class="vtable"> 
-		<?=$mandfldhtml;?><input name="comment" type="text" class="formfld" id="comment" size="60" value="<?=htmlspecialchars($pconfig['comment']);?>"> 
-        <br>
+		<?=$mandfldhtml;?><input name="descr" type="text" class="formfld" id="descr" size="60" value="<?=htmlspecialchars($pconfig['descr']);?>"> 
+        <br />
         <span class="vexpl"><?=gettext("Can be used to further identify this roll. Ignored by the system"); ?>.</span>
 		</td>
 	</tr>

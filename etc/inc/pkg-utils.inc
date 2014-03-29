@@ -102,7 +102,7 @@ function remove_freebsd_package($packagestring) {
 	// The packagestring passed in must be the full PBI package name, 
 	// as displayed by the pbi_info utility. e.g. "package-1.2.3_4-i386" 
 	// It must NOT have ".pbi" on the end.
-	exec("/usr/local/sbin/pbi_info {$packagestring} | /usr/bin/awk '/Prefix/ {print $2}'",$pbidir);
+	exec("/usr/local/sbin/pbi_info " . escapeshellarg($packagestring) . " | /usr/bin/awk '/Prefix/ {print $2}'",$pbidir);
 	$pbidir = $pbidir[0];
 	if ($pbidir == "") {
 		log_error("PBI dir for {$packagestring} was not found - cannot cleanup PBI files");
@@ -127,7 +127,7 @@ function remove_freebsd_package($packagestring) {
 			}
 		}
 
-		exec("/usr/local/sbin/pbi_delete {$packagestring} 2>>/tmp/pbi_delete_errors.txt");
+		exec("/usr/local/sbin/pbi_delete " . escapeshellarg($packagestring) . " 2>>/tmp/pbi_delete_errors.txt");
 	}
 }
 
@@ -188,7 +188,7 @@ function get_pkg_internal_name($package) {
 
 /****f* pkg-utils/get_pkg_info
  * NAME
- *   get_pkg_info - Retrieve package information from pfsense.com.
+ *   get_pkg_info - Retrieve package information from package server.
  * INPUTS
  *   $pkgs - 'all' to retrieve all packages, an array containing package names otherwise
  *   $info - 'all' to retrieve all information, an array containing keys otherwise
@@ -198,12 +198,11 @@ function get_pkg_internal_name($package) {
 function get_pkg_info($pkgs = 'all', $info = 'all') {
 	global $g;
 
-	$freebsd_version = php_uname("r");
 	$freebsd_machine = php_uname("m");
 	$params = array(
 		"pkg" => $pkgs, 
 		"info" => $info, 
-		"freebsd_version" => $freebsd_version[0],
+		"freebsd_version" => get_freebsd_version(),
 		"freebsd_machine" => $freebsd_machine
 	);
 	$resp = call_pfsense_method('pfsense.get_pkgs', $params, 10);
@@ -213,11 +212,10 @@ function get_pkg_info($pkgs = 'all', $info = 'all') {
 function get_pkg_sizes($pkgs = 'all') {
 	global $config, $g;
 
-	$freebsd_version = php_uname("r");
 	$freebsd_machine = php_uname("m");
 	$params = array(
 		"pkg" => $pkgs, 
-		"freebsd_version" => $freebsd_version,
+		"freebsd_version" => get_freebsd_version(),
 		"freebsd_machine" => $freebsd_machine
 	);
 	$msg = new XML_RPC_Message('pfsense.get_pkg_sizes', array(php_value_to_xmlrpc($params)));
@@ -279,7 +277,7 @@ function is_freebsd_pkg_installed($pkg) {
 	if(!$pkg) 
 		return;
 	$output = "";
-	exec("/usr/local/sbin/pbi_info \"{$pkg}\"", $output, $retval);
+	exec("/usr/local/sbin/pbi_info " . escapeshellarg($pkg), $output, $retval);
 
 	return (intval($retval) == 0);
 }
@@ -361,19 +359,6 @@ function uninstall_package($pkg_name) {
 	global $config, $static_output;
 	global $builder_package_install;
 
-	// Back up /usr/local/lib libraries first if
-	// not running from the builder code.
-	// also take into account rrd binaries
-	if(!$builder_package_install) {
-		if(!file_exists("/tmp/pkg_libs.tgz")) {
-			$static_output .= "Backing up libraries... ";
-			update_output_window($static_output);
-			mwexec("/usr/bin/tar czPf /tmp/pkg_libs.tgz `/bin/cat /etc/pfSense_md5.txt | /usr/bin/grep 'local/lib' | /usr/bin/awk '{ print $2 }' | /usr/bin/cut -d'(' -f2 | /usr/bin/cut -d')' -f1`", true);
-			mwexec("/usr/bin/tar czPf /tmp/pkg_bins.tgz `/bin/cat /etc/pfSense_md5.txt | /usr/bin/grep 'rrd' | /usr/bin/awk '{ print $2 }' | /usr/bin/cut -d'(' -f2 | /usr/bin/cut -d')' -f1`", true);
-			$static_output .= "\n";
-		}
-	}
-
 	$id = get_pkg_id($pkg_name);
 	if ($id >= 0) {
 		stop_service(get_pkg_internal_name($config['installedpackages']['package'][$id]));
@@ -399,18 +384,8 @@ function uninstall_package($pkg_name) {
 	}
 	delete_package_xml($pkg_name);
 
-	// Restore libraries that we backed up if not 
-	// running from the builder code.
-	if(!$builder_package_install) {
-		$static_output .= "Cleaning up... ";
-		update_output_window($static_output);
-		mwexec("/usr/bin/tar xzPfk /tmp/pkg_libs.tgz -C /", true);
-		mwexec("/usr/bin/tar xzPfk /tmp/pkg_bins.tgz -C /", true);
-		@unlink("/tmp/pkg_libs.tgz");
-		@unlink("/tmp/pkg_bins.tgz");
-		$static_output .= gettext("done.") . "\n";
-		update_output_window($static_output);
-	}
+	$static_output .= gettext("done.") . "\n";
+	update_output_window($static_output);
 }
 
 function force_remove_package($pkg_name) {
@@ -516,7 +491,7 @@ function sync_package($pkg_name, $sync_depends = true, $show_message = false) {
  * 			a progress bar and output window.
  */
 function pkg_fetch_recursive($pkgname, $filename, $dependlevel = 0, $base_url = "") {
-	global $static_output, $g;
+	global $static_output, $g, $config;
 
 	// Clean up incoming filenames
 	$filename = str_replace("  ", " ", $filename);
@@ -538,10 +513,8 @@ function pkg_fetch_recursive($pkgname, $filename, $dependlevel = 0, $base_url = 
 		}
 
 		/* FreeBSD has no PBI's hosted, so fall back to our own URL for now. (Maybe fail to PC-BSD?) */
-		$arch = php_uname("m");
-		$arch = ($arch == "i386") ? "" : $arch . '/';
 		$rel = get_freebsd_version();
-		$priv_url = "http://files.pfsense.org/packages/{$arch}{$rel}/All/";
+		$priv_url = "http://files.pfsense.org/packages/{$rel}/All/";
 		if (empty($base_url))
 			$base_url = $priv_url;
 		if (substr($base_url, -1) == "/")
@@ -567,21 +540,34 @@ function pkg_fetch_recursive($pkgname, $filename, $dependlevel = 0, $base_url = 
 
 		$pkgaddout = "";
 
-		exec("/usr/local/sbin/pbi_add {$pkgstaging} -f -v --no-checksig {$fetchto} 2>&1", $pkgaddout);
-		pkg_debug($pkgname . " " . print_r($pkgaddout, true) . "\npbi_add successfully completed.\n");
-		setup_library_paths();
-		exec("/usr/local/sbin/pbi_info " . preg_replace('/\.pbi$/','',$filename) . " | /usr/bin/awk '/Prefix/ {print $2}'",$pbidir);
-		$pbidir = $pbidir[0];
-		$linkdirs = array('bin','sbin');
-		foreach($linkdirs as $dir) {
-			if(is_dir("{$pbidir}/{$dir}")) {
+		$no_checksig = "";
+		if (isset($config['system']['pkg_nochecksig']))
+			$no_checksig = "--no-checksig";
+
+		$result = exec("/usr/local/sbin/pbi_add " . $pkgstaging . " -f -v {$no_checksig} " . escapeshellarg($fetchto) . " 2>&1", $pkgaddout, $rc);
+		pkg_debug($pkgname . " " . print_r($pkgaddout, true) . "\n");
+		if ($rc == 0) {
+			setup_library_paths();
+			$result = exec("/usr/local/sbin/pbi_info " . escapeshellarg(preg_replace('/\.pbi$/','',$filename)) . " | /usr/bin/awk '/Prefix/ {print $2}'",$pbidir);
+			$pbidir = $pbidir[0];
+			foreach(array('bin', 'sbin') as $dir) {
+				if(!is_dir("{$pbidir}/{$dir}"))
+					continue;
+
 				$files = scandir("{$pbidir}/{$dir}");
-				foreach($files as $f) {
-					if(!file_exists("/usr/local/{$dir}/{$f}")) {
-						symlink("{$pbidir}/{$dir}/{$f}","/usr/local/{$dir}/{$f}");
-					}
-				}
+				foreach($files as $f)
+					if(!file_exists("/usr/local/{$dir}/{$f}"))
+						@symlink("{$pbidir}/{$dir}/{$f}","/usr/local/{$dir}/{$f}");
 			}
+			pkg_debug("pbi_add successfully completed.\n");
+		} else {
+			if (is_array($pkgaddout))
+				foreach ($pkgaddout as $line)
+					$static_output .= " " . $line .= "\n";
+
+			update_output_window($static_output);
+			pkg_debug("pbi_add failed.\n");
+			return false;
 		}
 	}
 	return true;
@@ -640,7 +626,7 @@ function install_package($package, $pkg_info = "", $force_install = false) {
 			else {
 				$static_output .= gettext("failed!\n\nInstallation aborted.\n");
 				update_output_window($static_output);
-				echo "<br>Show <a href=\"pkg_mgr_install.php?showlog=true\">install log</a></center>";
+				echo "<br />Show <a href=\"pkg_mgr_install.php?showlog=true\">install log</a></center>";
 			}
 			conf_mount_ro();
 			return -1;
@@ -714,8 +700,8 @@ function install_package_xml($pkg) {
 		$static_output .= sprintf(gettext("The %s package is not installed.%sInstallation aborted."), $pkg, "\n\n");
 		update_output_window($static_output);
 		if($pkg_interface <> "console") {
-			echo "\n<script language=\"JavaScript\">document.progressbar.style.visibility='hidden';</script>";
-			echo "\n<script language=\"JavaScript\">document.progholder.style.visibility='hidden';</script>";
+			echo "\n<script type=\"text/javascript\">document.progressbar.style.visibility='hidden';</script>";
+			echo "\n<script type=\"text/javascript\">document.progholder.style.visibility='hidden';</script>";
 		}
 		sleep(1);
 		return false;
@@ -741,8 +727,8 @@ function install_package_xml($pkg) {
 					update_output_window($static_output);
 					pkg_debug(gettext("Package WAS NOT installed properly.") . "\n");
 					if($pkg_interface <> "console") {
-						echo "\n<script language=\"JavaScript\">document.progressbar.style.visibility='hidden';</script>";
-						echo "\n<script language=\"JavaScript\">document.progholder.style.visibility='hidden';</script>";
+						echo "\n<script type=\"text/javascript\">document.progressbar.style.visibility='hidden';</script>";
+						echo "\n<script type=\"text/javascript\">document.progholder.style.visibility='hidden';</script>";
 					}
 					sleep(1);
 					return false;
@@ -803,7 +789,7 @@ function install_package_xml($pkg) {
 				if(stristr($filename, ".tgz") <> "") {
 					pkg_debug(gettext("Extracting tarball to -C for ") . $filename . "...\n");
 					$tarout = "";
-					exec("/usr/bin/tar xvzf " . $prefix . $filename . " -C / 2>&1", $tarout);
+					exec("/usr/bin/tar xvzf " . escapeshellarg($prefix . $filename) . " -C / 2>&1", $tarout);
 					pkg_debug(print_r($tarout, true) . "\n");
 				}
 				if($pkg_chmod <> "") {
@@ -823,7 +809,7 @@ function install_package_xml($pkg) {
 		 */
 		$missing_include = false;
 		if($pkg_config['include_file'] <> "") {
-			$static_output = gettext("Loading package instructions...") . "\n";
+			$static_output .= gettext("Loading package instructions...") . "\n";
 			update_output_window($static_output);
 			pkg_debug("require_once('{$pkg_config['include_file']}')\n");
 			if (file_exists($pkg_config['include_file']))
@@ -861,7 +847,7 @@ function install_package_xml($pkg) {
 				$pkg_name_for_pbi_match = strtolower($pkg) . "-";
 				exec("/usr/local/sbin/pbi_info | grep '^{$pkg_name_for_pbi_match}' | xargs /usr/local/sbin/pbi_info | awk '/Prefix/ {print $2}'",$pbidirarray);
 				$pbidir0 = $pbidirarray[0];
-				exec("find /usr/local/etc/ -name *.conf | grep \"{$pkg}\"",$files);
+				exec("find /usr/local/etc/ -name *.conf | grep " . escapeshellarg($pkg),$files);
 				foreach($files as $f) {
 					$pbiconf = str_replace('/usr/local',$pbidir0,$f);
 					if(is_file($pbiconf) || is_link($pbiconf)) {
@@ -938,8 +924,8 @@ function install_package_xml($pkg) {
 		update_output_window($static_output);
 		pkg_debug(gettext("Unable to load package configuration. Installation aborted.") ."\n");
 		if($pkg_interface <> "console") {
-			echo "\n<script language=\"JavaScript\">document.progressbar.style.visibility='hidden';</script>";
-			echo "\n<script language=\"JavaScript\">document.progholder.style.visibility='hidden';</script>";
+			echo "\n<script type=\"text/javascript\">document.progressbar.style.visibility='hidden';</script>";
+			echo "\n<script type=\"text/javascript\">document.progholder.style.visibility='hidden';</script>";
 		}
 		sleep(1);
 		return false;
@@ -1004,8 +990,8 @@ function delete_package_xml($pkg) {
 		$static_output .= sprintf(gettext("The %s package is not installed.%sDeletion aborted."), $pkg, "\n\n");
 		update_output_window($static_output);
 		if($pkg_interface <> "console") {
-			echo "\n<script language=\"JavaScript\">document.progressbar.style.visibility='hidden';</script>";
-			echo "\n<script language=\"JavaScript\">document.progholder.style.visibility='hidden';</script>";
+			echo "\n<script type=\"text/javascript\">document.progressbar.style.visibility='hidden';</script>";
+			echo "\n<script type=\"text/javascript\">document.progholder.style.visibility='hidden';</script>";
 		}
 		ob_flush();
 		sleep(1);

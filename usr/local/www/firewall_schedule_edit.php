@@ -74,9 +74,9 @@ if (!is_array($config['schedules']['schedule']))
 
 $a_schedules = &$config['schedules']['schedule'];
 
-
-$id = $_GET['id'];
-if (isset($_POST['id']))
+if (is_numericint($_GET['id']))
+	$id = $_GET['id'];
+if (isset($_POST['id']) && is_numericint($_POST['id']))
 	$id = $_POST['id'];
 
 if (isset($id) && $a_schedules[$id]) {
@@ -215,7 +215,15 @@ var month_array = ['January','February','March','April','May','June','July','Aug
 var day_array = ['Mon','Tues','Wed','Thur','Fri','Sat','Sun'];
 var schCounter = 0;
 
-
+function rgb2hex(rgb) {
+	var parts = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+	if (parts == null)
+		return;
+	function hex(x) {
+		return ("0" + parseInt(x).toString(16)).slice(-2);
+	}
+	return ("#" + hex(parts[1]) + hex(parts[2]) + hex(parts[3])).toUpperCase();
+}
 
 function repeatExistingDays(){
 	var tempstr, tempstrdaypos, week, daypos, dayposdone = "";
@@ -234,7 +242,7 @@ function repeatExistingDays(){
 		tempstr = 'w' + week + 'p' + daypos;
 		daycell = eval('document.getElementById(tempstr)');
 		if (daydone == "-1"){
-			if (daycell.style.backgroundColor == "#F08080")  // lightcoral
+			if (rgb2hex(daycell.style.backgroundColor) == "#F08080")  // lightcoral
 				daytogglerepeating(week,daypos,true);
 			else
 				daytogglerepeating(week,daypos,false);
@@ -274,7 +282,7 @@ function daytogglerepeating(week,daypos,bExists){
 		}			
 	}	
 }
-	
+
 function daytoggle(id) {
 	var runrepeat, tempstr = "";
 	var bFoundValid = false;
@@ -302,12 +310,12 @@ function daytoggle(id) {
 		var daycell = document.getElementById(idmod);		
 	
 		if (daycell != null){
-			if (daycell.style.backgroundColor == "#FF0000"){  // red
+			if (rgb2hex(daycell.style.backgroundColor) == "#FF0000"){  // red
 				daycell.style.backgroundColor = "#FFFFFF";  // white
 				str = id + ",";
 				daysSelected = daysSelected.replace(str, "");
 			}
-			else if (daycell.style.backgroundColor == "#F08080")  // lightcoral
+			else if (rgb2hex(daycell.style.backgroundColor) == "#F08080")  // lightcoral
 			{
 				daytogglerepeating(week,daypos,true);
 			}
@@ -781,7 +789,7 @@ EOD;
 						        <span class="vexpl"><?=gettext("NOTE: This schedule is in use so the name may not be modified!");?></span>
 						      </p>
 				<?php else: ?>
-				  <input name="name" type="text" id="name" size="40" maxlength="40" class="formfld unknown" value="<?=htmlspecialchars($pconfig['name']);?>" /><br/>
+				  <input name="name" type="text" id="name" size="40" maxlength="40" class="formfld unknown" value="<?=htmlspecialchars($pconfig['name']);?>" /><br />
 				      	<span class="vexpl">
      					   <?=gettext("The name of the alias may only consist of the characters a-z, A-Z and 0-9");?>
       					</span>
@@ -790,7 +798,7 @@ EOD;
 				</tr>
 				<tr>
 					<td width="15%" valign="top" class="vncell"><?=gettext("Description");?></td>
-					<td width="85%" class="vtable"><input name="descr" type="text" id="descr" size="40" maxlength="40" class="formfld unknown" value="<?=htmlspecialchars($pconfig['descr']);?>" /><br/>
+					<td width="85%" class="vtable"><input name="descr" type="text" id="descr" size="40" maxlength="40" class="formfld unknown" value="<?=htmlspecialchars($pconfig['descr']);?>" /><br />
  						<span class="vexpl">
 				        	<?=gettext("You may enter a description here for your reference (not parsed).");?>
 				      	</span>
@@ -820,7 +828,7 @@ EOD;
 								$monthcounter++;
 							}	
 						} ?>      	
-                    </select><br/><br/>
+                    </select><br /><br />
             		<?php
             		$firstmonth = TRUE;
             		$monthcounter = date("n");
@@ -901,7 +909,7 @@ EOD;
 						}					
 					} //end for loop
 					?>
-							<br/>
+							<br />
 					<?=gettext("Click individual date to select that date only. Click the appropriate weekday Header to select all occurences of that weekday.");?>
 	                 </td>
 				</tr>
@@ -958,13 +966,13 @@ EOD;
 				  				</select>&nbsp;<?=gettext("Min");?>
 				  			</td>
 				  		</tr>
-				  	</table><br/>
+				  	</table><br />
                    <?=gettext("Select the time range for the day(s) selected on the Month(s) above. A full day is 0:00-23:59.")?>
 					</td>
 				</tr>
 				<tr>
 					<td width="15%" valign="top" class="vncell"><?=gettext("Time Range Description")?></td>
-					<td width="85%" class="vtable"><input name="timerangedescr" type="text" class="formfld unknown" id="timerangedescr" size="40" maxlength="40" /><br/>
+					<td width="85%" class="vtable"><input name="timerangedescr" type="text" class="formfld unknown" id="timerangedescr" size="40" maxlength="40" /><br />
  						<span class="vexpl">
 				        	<?=gettext("You may enter a description here for your reference (not parsed).")?>
 				      	</span>     

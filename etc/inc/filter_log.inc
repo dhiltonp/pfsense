@@ -55,9 +55,9 @@ function conv_log_filter($logfile, $nentries, $tail = 50, $filtertext = "", $fil
 	$logarr = "";
 
 	if(isset($config['system']['usefifolog']))
-		exec("/usr/sbin/fifolog_reader {$logfile} | /usr/bin/tail -r -n {$tail}", $logarr);
+		exec("/usr/sbin/fifolog_reader " . escapeshellarg($logfile) . " | /usr/bin/tail -r -n {$tail}", $logarr);
 	else
-		exec("/usr/sbin/clog {$logfile} | grep -v \"CLOG\" | grep -v \"\033\" | /usr/bin/tail -r -n {$tail}", $logarr);
+		exec("/usr/sbin/clog " . escapeshellarg($logfile) . " | grep -v \"CLOG\" | grep -v \"\033\" | /usr/bin/tail -r -n {$tail}", $logarr);
 
 	$filterlog = array();
 	$counter = 0;
@@ -154,7 +154,9 @@ function parse_filter_line($line) {
 	$flent['interface']  = convert_real_interface_to_friendly_descr($flent['realint']);
 
 	$tmp = explode("/", $rule);
-	$flent['rulenum'] = $tmp[0];
+	// Format of the rule number in FreeBSD 9.x and later seems to be X..Y where X is the matched rule and Y is the maximum possible rule number.
+	$rulenum_parts = explode("..", $tmp[0]);
+	$flent['rulenum'] = $rulenum_parts[0];
 
 	$proto = array(" ", "(?)");
 	/* Attempt to determine the protocol, based on several possible patterns.
@@ -254,29 +256,54 @@ function get_port_with_service($port, $proto) {
 }
 
 function find_rule_by_number($rulenum, $type="rules") {
+	global $g;
+
 	/* Passing arbitrary input to grep could be a Very Bad Thing(tm) */
 	if (!(is_numeric($rulenum)))
 		return;
 	/* At the moment, miniupnpd is the only thing I know of that
 	   generates logging rdr rules */
+	unset($buffer);
 	if ($type == "rdr")
-		return `pfctl -vvsn -a "miniupnpd" | grep '^@{$rulenum} '`;
-	else
-		return `pfctl -vvsr | grep '^@{$rulenum} '`;
+		$_gb = exec("/sbin/pfctl -vvPsn -a \"miniupnpd\" | grep '^@'", $buffer);
+	else {
+		if (file_exists("{$g['tmp_path']}/rules.debug"))
+			$_gb = exec("/sbin/pfctl -vvPnf {$g['tmp_path']}/rules.debug 2>/dev/null | /usr/bin/egrep " . escapeshellarg("^@{$rulenum} {$type}"), $buffer);
+		else
+			$_gb = exec("/sbin/pfctl -vvPsr | grep " . escapeshellarg("^@{$rulenum}"), $buffer);
+	}
+	if (is_array($buffer))
+		return $buffer[0];
+
+	return "";
 }
 
 function buffer_rules_load() {
-    global $buffer_rules_rdr, $buffer_rules_normal;
-	$buffer = explode("\n",`pfctl -vvsn -a "miniupnpd" | grep '^@'`);
-	foreach ($buffer as $line) {
-		list($key, $value) = explode (" ", $line, 2);
-		$buffer_rules_rdr[$key] = $value;
-	}	
-	$buffer = explode("\n",`pfctl -vvsr | grep '^@'`);
-	foreach ($buffer as $line) {
-		list($key, $value) = explode (" ", $line, 2);
-		$buffer_rules_normal[$key] = $value;
-	}	
+    global $g, $buffer_rules_rdr, $buffer_rules_normal;
+
+	unset($buffer, $buffer_rules_rdr, $buffer_rules_normal);
+	$buffer_rules_rdr = array();
+	$buffer_rules_normal = array();
+
+	$_gb = exec("/sbin/pfctl -vvPsn -a \"miniupnpd\" | grep '^@'", $buffer);
+	if (is_array($buffer)) {
+		foreach ($buffer as $line) {
+			list($key, $value) = explode (" ", $line, 2);
+			$buffer_rules_rdr[$key] = $value;
+		}
+	}
+	unset($buffer, $_gb);
+	if (file_exists("{$g['tmp_path']}/rules.debug"))
+		$_gb = exec("/sbin/pfctl -vvPnf {$g['tmp_path']}/rules.debug 2>/dev/null | /usr/bin/egrep '^@[0-9]+ ' | /usr/bin/egrep -v '^@[0-9]+ (nat|rdr|binat|no|scrub)'", $buffer);
+	else
+		$_gb = exec("/sbin/pfctl -vvPsr | grep '^@'", $buffer);
+	if (is_array($buffer)) {
+		foreach ($buffer as $line) {
+			list($key, $value) = explode (" ", $line, 2);
+			$buffer_rules_normal[$key] = $value;
+		}
+	}
+	unset($_gb, $buffer);
 }
 
 function buffer_rules_clear() {

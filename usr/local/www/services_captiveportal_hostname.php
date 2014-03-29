@@ -98,7 +98,7 @@ include("head.inc");
 <?php include("fbegin.inc"); ?>
 <body link="#0000CC" vlink="#0000CC" alink="#0000CC">
 <form action="services_captiveportal_hostname.php" method="post">
-<input type="hidden" name="zone" id="zone" value="<?=$cpzone;?>" />
+<input type="hidden" name="zone" id="zone" value="<?=htmlspecialchars($cpzone);?>" />
 <?php if ($savemsg) print_info_box($savemsg); ?>
 <table width="100%" border="0" cellpadding="0" cellspacing="0">
   <tr><td class="tabnavtbl">
@@ -166,7 +166,7 @@ include("head.inc");
 	</tr>
 	<tr>
 	<td colspan="2" class="list"><p class="vexpl"><span class="red"><strong>
-	  <?=gettext("Note:"); ?><br>
+	  <?=gettext("Note:"); ?><br />
 	  </strong></span>
 	  <?=gettext("Adding allowed Hostnames will allow a DNS hostname access to/from access through the captive portal without being taken to the portal page. This can be used for a web server serving images for the portal page or a DNS server on another network, for example. By specifying <em>from</em> addresses, it may be used to always allow pass-through access from a client behind the captive portal."); ?></p>
 	  <table border="0" cellspacing="0" cellpadding="0">

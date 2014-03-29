@@ -7,7 +7,7 @@
 	Copyright (C) 2003-2004 Manuel Kasper <mk@neon1.net>.
 	All rights reserved.
 
-	part of pfSense (http://www.pfsense.org)
+	part of pfSense (https://www.pfsense.org)
 	Copyright (C) 2010 Seth Mos <seth.mos@dds.nl>.
 	All rights reserved.
 
@@ -366,8 +366,8 @@ display_top_tabs($tab_array);
 			<tr>
 			<td width="22%" valign="top" class="vncell"><?=gettext("DNS servers");?></td>
 			<td width="78%" class="vtable">
-				<input name="radns1" type="text" class="formfld unknown" id="radns1" size="28" value="<?=htmlspecialchars($pconfig['radns1']);?>"><br>
-				<input name="radns2" type="text" class="formfld unknown" id="radns2" size="28" value="<?=htmlspecialchars($pconfig['radns2']);?>"><br>
+				<input name="radns1" type="text" class="formfld unknown" id="radns1" size="28" value="<?=htmlspecialchars($pconfig['radns1']);?>"><br />
+				<input name="radns2" type="text" class="formfld unknown" id="radns2" size="28" value="<?=htmlspecialchars($pconfig['radns2']);?>"><br />
 				<?=gettext("NOTE: leave blank to use the system default DNS servers - this interface's IP if DNS forwarder is enabled, otherwise the servers configured on the General page.");?>
 			</td>
 			</tr>
@@ -375,7 +375,7 @@ display_top_tabs($tab_array);
 			<tr>
 			<td width="22%" valign="top" class="vncell"><?=gettext("Domain search list");?></td>
 			<td width="78%" class="vtable">
-				<input name="radomainsearchlist" type="text" class="formfld unknown" id="radomainsearchlist" size="28" value="<?=htmlspecialchars($pconfig['radomainsearchlist']);?>"><br>
+				<input name="radomainsearchlist" type="text" class="formfld unknown" id="radomainsearchlist" size="28" value="<?=htmlspecialchars($pconfig['radomainsearchlist']);?>"><br />
 				<?=gettext("The RA server can optionally provide a domain search list. Use the semicolon character as separator");?>
 			</td>
 			</tr>
@@ -402,7 +402,7 @@ display_top_tabs($tab_array);
 </table>
 </form>
 
-<script language="JavaScript">
+<script type="text/javascript">
 //<![CDATA[
 	jQuery(function ($) {
 		var $rasamednsasdhcp6 = $("#rasamednsasdhcp6");

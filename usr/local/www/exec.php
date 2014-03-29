@@ -83,7 +83,7 @@ function puts( $arg ) { echo "$arg\n"; }
 // "Constants".
 
 $Version    = '';
-$ScriptName = $HTTP_SERVER_VARS['SCRIPT_NAME'];
+$ScriptName = $REQUEST['SCRIPT_NAME'];
 
 // Get year.
 
@@ -94,7 +94,7 @@ $pgtitle = array(gettext("Diagnostics"),gettext("Execute command"));
 include("head.inc");
 ?>
 
-<script language="javascript">
+<script type="text/javascript">
 <!--
 
    // Create recall buffer array (of encoded strings).

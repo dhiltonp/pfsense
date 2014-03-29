@@ -36,10 +36,9 @@
 
 function dump_rrd_to_xml($rrddatabase, $xmldumpfile) {
 	$rrdtool = "/usr/bin/nice -n20 /usr/local/bin/rrdtool";
-	if(file_exists($xmldumpfile))
-		mwexec("rm {$xmldumpfile}");
+	unlink_if_exists($xmldumpfile);
 
-	exec("$rrdtool dump {$rrddatabase} {$xmldumpfile} 2>&1", $dumpout, $dumpret);
+	exec("$rrdtool dump " . escapeshellarg($rrddatabase) . " {$xmldumpfile} 2>&1", $dumpout, $dumpret);
 	if ($dumpret <> 0) {
 		$dumpout = implode(" ", $dumpout);
 		log_error(sprintf(gettext('RRD dump failed exited with %1$s, the error is: %2$s'), $dumpret, $dumpout));
@@ -221,6 +220,7 @@ function enable_rrd_graphing() {
 	$vpnusers = "-vpnusers.rrd";
 	$captiveportalconcurrent = "-concurrent.rrd";
 	$captiveportalloggedin = "-loggedin.rrd";
+	$ntpd = "ntpd.rrd";
 
 	$rrdtool = "/usr/bin/nice -n20 /usr/local/bin/rrdtool";
 	$netstat = "/usr/bin/netstat";
@@ -233,6 +233,7 @@ function enable_rrd_graphing() {
 	$spamd_gather = "/usr/local/bin/spamd_gather_stats.php";
 	$ifconfig = "/sbin/ifconfig";
 	$captiveportal_gather = "/usr/local/bin/captiveportal_gather_stats.php";
+	$ntpq = "/usr/local/sbin/ntpq";
 
 	$rrdtrafficinterval = 60;
 	$rrdwirelessinterval = 60;
@@ -248,6 +249,7 @@ function enable_rrd_graphing() {
 	$rrdcellularinterval = 60;
 	$rrdvpninterval = 60;
 	$rrdcaptiveportalinterval = 60;
+	$rrdntpdinterval = 60;
 
 	$trafficvalid = $rrdtrafficinterval * 2;
 	$wirelessvalid = $rrdwirelessinterval * 2;
@@ -263,6 +265,7 @@ function enable_rrd_graphing() {
 	$cellularvalid = $rrdcellularinterval * 2;
 	$vpnvalid = $rrdvpninterval * 2;
 	$captiveportalvalid = $rrdcaptiveportalinterval * 2;
+	$ntpdvalid = $rrdntpdinterval * 2;
 
 	/* Assume 2*10GigE for now */
 	$downstream = 2500000000;
@@ -841,6 +844,56 @@ function enable_rrd_graphing() {
 
 			}
 		}
+		/* End Captive Portal statistics */
+
+		/* NTP, set up the ntpd rrd file */
+		if (isset($config['ntpd']['statsgraph'])) {
+			/* set up the ntpd rrd file */
+			if (!file_exists("$rrddbpath$ifname$ntpd")) {
+				$rrdcreate = "$rrdtool create $rrddbpath$ntpd --step $rrdntpdinterval ";
+				$rrdcreate .= "DS:offset:GAUGE:$ntpdvalid:0:1000 ";
+				$rrdcreate .= "DS:sjit:GAUGE:$ntpdvalid:0:1000 ";
+				$rrdcreate .= "DS:cjit:GAUGE:$ntpdvalid:0:1000 ";
+				$rrdcreate .= "DS:wander:GAUGE:$ntpdvalid:0:1000 ";
+				$rrdcreate .= "DS:freq:GAUGE:$ntpdvalid:0:1000 ";
+				$rrdcreate .= "DS:disp:GAUGE:$ntpdvalid:0:1000 ";
+				$rrdcreate .= "RRA:MIN:0.5:1:1200 ";
+				$rrdcreate .= "RRA:MIN:0.5:5:720 ";
+				$rrdcreate .= "RRA:MIN:0.5:60:1860 ";
+				$rrdcreate .= "RRA:MIN:0.5:1440:2284 ";
+				$rrdcreate .= "RRA:AVERAGE:0.5:1:1200 ";
+				$rrdcreate .= "RRA:AVERAGE:0.5:5:720 ";
+				$rrdcreate .= "RRA:AVERAGE:0.5:60:1860 ";
+				$rrdcreate .= "RRA:AVERAGE:0.5:1440:2284 ";
+				$rrdcreate .= "RRA:MAX:0.5:1:1200 ";
+				$rrdcreate .= "RRA:MAX:0.5:5:720 ";
+				$rrdcreate .= "RRA:MAX:0.5:60:1860 ";
+				$rrdcreate .= "RRA:MAX:0.5:1440:2284 ";
+
+				create_new_rrd($rrdcreate);
+				unset($rrdcreate);
+			}
+
+			/* enter UNKNOWN values in the RRD so it knows we rebooted. */
+			if($g['booting']) {
+				mwexec("$rrdtool update $rrddbpath$ntpd N:U");
+			}
+
+			/* the ntp stats gathering function. */
+			$rrdupdatesh .= "\n";
+			$rrdupdatesh .= "$ntpq -c rv | $awk 'BEGIN{ RS=\",\"}{ print }' >> /tmp/ntp-rrdstats.$$\n";
+			$rrdupdatesh .= "NOFFSET=`grep offset /tmp/ntp-rrdstats.$$ | awk 'BEGIN{FS=\"=\"}{print $2}'`\n";
+			$rrdupdatesh .= "NFREQ=`grep frequency /tmp/ntp-rrdstats.$$ | awk 'BEGIN{FS=\"=\"}{print $2}'`\n";
+			$rrdupdatesh .= "NSJIT=`grep sys_jitter /tmp/ntp-rrdstats.$$ | awk 'BEGIN{FS=\"=\"}{print $2}'`\n";
+			$rrdupdatesh .= "NCJIT=`grep clk_jitter /tmp/ntp-rrdstats.$$ | awk 'BEGIN{FS=\"=\"}{print $2}'`\n";
+			$rrdupdatesh .= "NWANDER=`grep clk_wander /tmp/ntp-rrdstats.$$ | awk 'BEGIN{FS=\"=\"}{print $2}'`\n";
+			$rrdupdatesh .= "NDISPER=`grep rootdisp /tmp/ntp-rrdstats.$$ | awk 'BEGIN{FS=\"=\"}{print $2}'`\n";
+			$rrdupdatesh .= "$rrdtool update $rrddbpath$ntpd \N:\${NOFFSET}:\${NSJIT}:\${NCJIT}:\${NWANDER}:\${NFREQ}:\${NDISPER}\n";
+			$rrdupdatesh .= "rm /tmp/ntp-rrdstats.$$\n";
+			$rrdupdatesh .= "\n";
+
+		}
+		/* End NTP statistics */
 
 		$rrdupdatesh .= "sleep 60\n";
 		$rrdupdatesh .= "done\n";
@@ -872,6 +925,34 @@ function enable_rrd_graphing() {
 	if($g['booting'])
 		echo gettext("done.") . "\n";
 
+}
+
+# Create gateway quality RRD with settings suitable for pfSense graph set.
+function create_gateway_quality_rrd($rrd_file) {
+	global $g;
+	$rrdinterval = 60;
+	$valid = $rrdinterval * 2;
+	$rrdtool = "/usr/bin/nice -n20 /usr/local/bin/rrdtool";
+
+	/* GATEWAY QUALITY, set up the rrd file */
+	if (!file_exists("$rrd_file")) {
+		$rrdcreate = "$rrdtool create $rrd_file --step $rrdinterval ";
+		$rrdcreate .= "DS:loss:GAUGE:$valid:0:100 ";
+		$rrdcreate .= "DS:delay:GAUGE:$valid:0:100000 ";
+		$rrdcreate .= "RRA:AVERAGE:0.5:1:1200 ";
+		$rrdcreate .= "RRA:AVERAGE:0.5:5:720 ";
+		$rrdcreate .= "RRA:AVERAGE:0.5:60:1860 ";
+		$rrdcreate .= "RRA:AVERAGE:0.5:1440:2284 ";
+
+		create_new_rrd($rrdcreate);
+		unset($rrdcreate);
+	}
+
+	/* enter UNKNOWN values in the RRD so it knows we rebooted. */
+	if($g['booting']) {
+		mwexec("$rrdtool update $rrd_file N:U:U");
+	}
+	unset($rrdtool, $rrdinterval, $valid, $rrd_file);
 }
 
 function kill_traffic_collector() {

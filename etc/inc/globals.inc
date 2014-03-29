@@ -2,7 +2,7 @@
 /* $Id$ */
 /*
     globals.inc
-    part of pfSense (www.pfsense.com)
+    part of pfSense (https://www.pfsense.org)
     Copyright (C) 2004-2010 Scott Ullrich
 
     Originally Part of m0n0wall
@@ -42,6 +42,7 @@ $g = array(
 	"factory_shipped_password" => "pfsense",
 	"upload_path" => "/root",
 	"dhcpd_chroot_path" => "/var/dhcpd",
+	"unbound_chroot_path" => "/var/unbound",
 	"varrun_path" => "/var/run",
 	"varetc_path" => "/var/etc",
 	"vardb_path" => "/var/db",
@@ -59,9 +60,9 @@ $g = array(
 	"product_name" => "pfSense",
 	"product_copyright" => "Electric Sheep Fencing LLC",
 	"product_copyright_url" => "http://www.electricsheepfencing.com",
-	"product_copyright_years" => "2004 - 2013",
+	"product_copyright_years" => "2004 - ".date("Y"),
 	"product_website" => "www.pfsense.org",
-	"product_website_footer" => "http://www.pfsense.org/?gui21",
+	"product_website_footer" => "https://www.pfsense.org/?gui22",
 	"product_email" => "coreteam@pfsense.org",
 	"hideplatform" => false,
 	"hidedownloadbackup" => false,
@@ -70,9 +71,9 @@ $g = array(
 	"disablehelpmenu" => false,
 	"disablehelpicon" => false,
 	"disablecrashreporter" => false,
-	"crashreporterurl" => "http://crashreporter.pfsense.org/crash_reporter.php",
+	"crashreporterurl" => "https://crashreporter.pfsense.org/crash_reporter.php",
 	"debug" => false,
-	"latest_config" => "10.5",
+	"latest_config" => "10.7",
 	"nopkg_platforms" => array("cdrom"),
 	"minimum_ram_warning" => "101",
 	"minimum_ram_warning_text" => "128 MB",
@@ -80,11 +81,11 @@ $g = array(
 	"minimum_nic_count_text" => "*AT LEAST* 1",	
 	"wan_interface_name" => "wan", 
 	"nopccard_platforms" => array("wrap", "net48xx"),
-	"xmlrpcbaseurl" => "www.pfsense.com",
+	"xmlrpcbaseurl" => "https://packages.pfsense.org",
 	"captiveportal_path" => "/usr/local/captiveportal",
 	"captiveportal_element_path" => "/var/db/cpelements",
 	"captiveportal_element_sizelimit" => 1048576,
-	"xmlrpcpath" => "/pfSense/xmlrpc.php",
+	"xmlrpcpath" => "/xmlrpc.php",
 	"embeddedbootupslice" => "/dev/ad0a",
 	"services_dhcp_server_enable" => true,
 	"wireless_regex" => "/^(ndis|wi|ath|an|ral|ural|iwi|wlan|rum|run|bwn|zyd|mwl|bwi|ipw|iwn|malo|uath|upgt|urtw|wpi)/",
@@ -103,8 +104,8 @@ if(file_exists("/etc/platform")) {
 	$arch = ($arch == "i386") ? "" : '/' . $arch;
 
 	/* Full installs and NanoBSD use the same update directory and manifest in 2.x */
-	$g['update_url']="http://snapshots.pfsense.org/FreeBSD_RELENG_8_3/{$arch}/pfSense_HEAD/.updaters/";
-	$g['update_manifest']="http://updates.pfSense.com/manifest";
+	$g['update_url']="https://snapshots.pfsense.org/FreeBSD_RELENG_10_0/{$arch}/pfSense_HEAD/.updaters/";
+	$g['update_manifest']="https://updates.pfSense.org/manifest";
 
 	$g['platform'] = trim(file_get_contents("/etc/platform"));
 	if($g['platform'] == "nanobsd") {
@@ -140,7 +141,6 @@ $sysctls = array("net.inet.ip.portrange.first" => "1024",
 	"kern.randompid" => "347", 
 	"net.inet.ip.intr_queue_maxlen" => "1000", 
 	"hw.syscons.kbd_reboot" => "0", 
-	"net.inet.tcp.inflight.enable" => "1", 
 	"net.inet.tcp.log_debug" => "0", 
 	"net.inet.tcp.tso" => "1", 
 	"net.inet.icmp.icmplim" => "0",
@@ -148,12 +148,12 @@ $sysctls = array("net.inet.ip.portrange.first" => "1024",
 	"kern.ipc.maxsockbuf" => "4262144",
 	"debug.pfftpproxy" => "0",
 	"net.inet.ip.process_options" => 0,
-	"vfs.forcesync" => 0,
 	"kern.random.sys.harvest.interrupt" => 0,
 	"kern.random.sys.harvest.point_to_point" => 0,
 	"kern.random.sys.harvest.ethernet" => 0,
 	"net.route.netisr_maxqlen" => 1024,
-	"net.inet.udp.checksum" => 1
+	"net.inet.udp.checksum" => 1,
+	"net.bpf.zerocopy_enable" => 1
 );
 
 /* Include override values for the above if needed. If the file doesn't exist, don't try to load it. */

@@ -1,7 +1,7 @@
 <?php
 /*
 	util.inc
-	part of the pfSense project (http://www.pfsense.com)
+	part of the pfSense project (https://www.pfsense.org)
 
 	originally part of m0n0wall (http://m0n0.ch/wall)
 	Copyright (C) 2003-2004 Manuel Kasper <mk@neon1.net>.
@@ -52,7 +52,7 @@ function isvalidpid($pidfile) {
 
 function is_process_running($process) {
 	$output = "";
-	exec("/bin/pgrep -anx {$process}", $output, $retval);
+	exec("/bin/pgrep -anx " . escapeshellarg($process), $output, $retval);
 
 	return (intval($retval) == 0);
 }
@@ -65,7 +65,7 @@ function isvalidproc($proc) {
 /* return 1 for success and 0 for a failure */
 function sigkillbypid($pidfile, $sig) {
 	if (file_exists($pidfile))
-		return mwexec("/bin/pkill -{$sig} -F {$pidfile}", true);
+		return mwexec("/bin/pkill " . escapeshellarg("-{$sig}") . " -F {$pidfile}", true);
 
 	return 0;
 }
@@ -73,7 +73,7 @@ function sigkillbypid($pidfile, $sig) {
 /* kill a process by name */
 function sigkillbyname($procname, $sig) {
 	if(isvalidproc($procname))
-		return mwexec("/usr/bin/killall -{$sig} " . escapeshellarg($procname), true);
+		return mwexec("/usr/bin/killall " . escapeshellarg("-{$sig}") . " " . escapeshellarg($procname), true);
 }
 
 /* kill a process by name */
@@ -304,6 +304,11 @@ function is_module_loaded($module_name) {
 		return false;
 }
 
+/* validate non-negative numeric string, or equivalent numeric variable */
+function is_numericint($arg) {
+	return (((is_int($arg) && $arg >= 0) || (is_string($arg) && strlen($arg) > 0 && ctype_digit($arg))) ? true : false);  
+}
+
 /* return the subnet address given a host address and a subnet bit count */
 function gen_subnet($ipaddr, $bits) {
 	if (!is_ipaddr($ipaddr) || !is_numeric($bits))
@@ -490,11 +495,6 @@ function is_iprange($range) {
 	return (is_ipaddr($ip1) && is_ipaddr($ip2));
 }
 
-function is_numericint($arg) {
-	return (preg_match("/[^0-9]/", $arg) ? false : true);
-}
-
-
 /* returns true if $ipaddr is a valid dotted IPv4 address or a IPv6 */
 function is_ipaddr($ipaddr) {
 	if(is_ipaddrv4($ipaddr)) {
@@ -533,7 +533,7 @@ function is_ipaddrv4($ipaddr) {
 
 /* returns true if $ipaddr is a valid linklocal address */
 function is_linklocal($ipaddr) {
-	return (substr($ipaddr, 0, 5) == "fe80:");
+	return (strtolower(substr($ipaddr, 0, 5)) == "fe80:");
 }
 
 /* returns scope of a linklocal address */
@@ -593,49 +593,28 @@ function is_ipaddroralias($ipaddr) {
 
 }
 
-/* returns true if $subnet is a valid IPv4 or IPv6 subnet in CIDR format */
+/* returns true if $subnet is a valid IPv4 or IPv6 subnet in CIDR format
+   	false - if not a valid subnet
+   	true (numeric 4 or 6) - if valid, gives type of subnet */
 function is_subnet($subnet) {
-	if(is_subnetv4($subnet)) {
-		return true;
-	}
-	if(is_subnetv6($subnet)) {
-		return true;
+	if (is_string($subnet) && preg_match('/^(?:([0-9.]{7,15})|([0-9a-f:]{2,39}))\/(\d{1,3})$/i', $subnet, $parts)) {
+		if (is_ipaddrv4($parts[1]) && $parts[3] <= 32)
+			return 4;
+		if (is_ipaddrv6($parts[2]) && $parts[3] <= 128)
+			return 6;
 	}
 	return false;
 }
 
-/* returns true if $subnet is a valid IPv4 subnet in CIDR format */
+/* same as is_subnet() but accepts IPv4 only */
 function is_subnetv4($subnet) {
-	if (!is_string($subnet))
-		return false;
-
-	list($hp,$np) = explode('/', $subnet);
-
-	if (!is_ipaddrv4($hp))
-		return false;
-
-	if (!is_numeric($np) || ($np < 1) || ($np > 32))
-		return false;
-
-	return true;
+	return (is_subnet($subnet) == 4);
 }
 
-/* returns true if $subnet is a valid IPv6 subnet in CIDR format */
+/* same as is_subnet() but accepts IPv6 only */
 function is_subnetv6($subnet) {
-	if (!is_string($subnet))
-		return false;
-
-	list($hp,$np) = explode('/', $subnet);
-
-	if (!is_ipaddrv6($hp))
-		return false;
-
-	if (!is_numeric($np) || ($np < 1) || ($np > 128))
-		return false;
-
-	return true;
+	return (is_subnet($subnet) == 6);
 }
-
 
 /* returns true if $subnet is a valid subnet in CIDR format or an alias thereof */
 function is_subnetoralias($subnet) {
@@ -675,17 +654,23 @@ function is_macaddr($macaddr, $partial=false) {
 	return preg_match('/^[0-9A-F]{2}(?:[:][0-9A-F]{2}){'.$repeat.'}$/i', $macaddr) == 1 ? true : false;
 }
 
-/* returns true if $name is a valid name for an alias */
-/* returns NULL if a reserved word is used */
+/* returns true if $name is a valid name for an alias
+   returns NULL if a reserved word is used
+   returns FALSE for bad chars in the name - this allows calling code to determine what the problem was.
+   aliases cannot be:
+   	bad chars: anything except a-z 0-9 and underscore
+   	bad names: empty string, pure numeric, pure underscore
+   	reserved words: pre-defined service/protocol/port names which should not be ambiguous, and the words "port" and  "pass" */
+
 function is_validaliasname($name) {
 	/* Array of reserved words */
 	$reserved = array("port", "pass");
-	if (in_array($name, $reserved, true))
-		return; /* return NULL */
-	if (!preg_match("/[^a-zA-Z0-9_]/", $name) && (strlen($name) < 32))
-		return true;
-	else
+
+	if (!is_string($name) || strlen($name) >= 32 || preg_match('/(^_*$|^\d*$|[^a-z0-9_])/i', $name))
 		return false;
+	if (in_array($name, $reserved, true) || getservbyname($name, "tcp") || getservbyname($name, "udp") || getprotobyname($name))
+		return; /* return NULL */
+	return true;
 }
 
 /* returns true if $port is a valid TCP/UDP port */
@@ -1163,7 +1148,7 @@ function log_auth($error) {
  ******/
 function exec_command($command) {
 	$output = array();
-	exec($command . ' 2>&1 ', $output);
+	exec($command . ' 2>&1', $output);
 	return(implode("\n", $output));
 }
 
@@ -1192,7 +1177,9 @@ function mwexec($command, $mute = false, $clearsigmask = false) {
 	if(($retval <> 0) && ($mute === false)) {
 		$output = implode(" ", $oarr);
 		log_error(sprintf(gettext("The command '%1\$s' returned exit code '%2\$d', the output was '%3\$s' "), $command, $retval, $output));
+		unset($output);
 	}
+	unset($oarr);
 	return $retval;
 }
 
@@ -1389,9 +1376,9 @@ function verify_digital_signature($fname) {
 
 /* obtain MAC address given an IP address by looking at the ARP table */
 function arp_get_mac_by_ip($ip) {
-	mwexec("/sbin/ping -c 1 -t 1 {$ip}", true);
+	mwexec("/sbin/ping -c 1 -t 1 " . escapeshellarg($ip), true);
 	$arpoutput = "";
-	exec("/usr/sbin/arp -n {$ip}", $arpoutput);
+	exec("/usr/sbin/arp -n " . escapeshellarg($ip), $arpoutput);
 
 	if ($arpoutput[0]) {
 		$arpi = explode(" ", $arpoutput[0]);
@@ -1617,8 +1604,13 @@ function set_sysctl($values) {
  */
 function get_memory() {
 
-	$physmem = trim(`sysctl -n hw.physmem`, " \n");
-	$realmem = trim(`sysctl -n hw.realmem`, " \n");
+	$output = "";
+	$_gb = exec("/sbin/sysctl -n hw.physmem", $output);
+	$physmem = trim($output[0], " \n");
+	unset($output);
+	$_gb = exec("/sbin/sysctl -n hw.physmem", $output);
+	$realmem = trim($output[0], " \n");
+	unset($output, $_gb);
 	/* convert from bytes to megabytes */
 	return array(($physmem/1048576),($realmem/1048576));
 }

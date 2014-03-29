@@ -47,8 +47,8 @@ if($_GET['createalias'] == "true") {
 	$resolved = gethostbyname($host);
 	if($resolved) {
 		$host = trim($_POST['host']);
-		$dig=`dig "$host" A | grep "$host" | grep -v ";" | awk '{ print $5 }'`;
-		$resolved = explode("\n", $dig);
+		$drill=`/usr/bin/drill "$host" A | grep "$host" | grep -v ";" | awk '{ print $5 }'`;
+		$resolved = explode("\n", $drill);
 		$isfirst = true;
 		foreach($resolved as $re) {
 			if($re <> "") {
@@ -104,7 +104,7 @@ if ($_POST) {
 		$resolvconf_servers = `grep nameserver /etc/resolv.conf | cut -f2 -d' '`;
 		$dns_servers = explode("\n", trim($resolvconf_servers));
 		foreach ($dns_servers as $dns_server) {
-			$query_time = `dig {$host_esc} @{$dns_server} | grep Query | cut -d':' -f2`;
+			$query_time = `/usr/bin/drill {$host_esc} @{$dns_server} | grep Query | cut -d':' -f2`;
 			if($query_time == "")
 				$query_time = gettext("No response");
 			$new_qt = array();
@@ -130,8 +130,8 @@ if ($_POST) {
 			$type = "hostname";
 			$resolved = gethostbyname($host);
 			if($resolved) {
-				$dig=`dig $host_esc A | grep $host_esc | grep -v ";" | awk '{ print $5 }'`;
-				$resolved = explode("\n", $dig);
+				$drill=`/usr/bin/drill $host_esc A | grep $host_esc | grep -v ";" | awk '{ print $5 }'`;
+				$resolved = explode("\n", $drill);
 			}
 			$hostname = $host;
 			if ($host != $resolved)
@@ -196,7 +196,7 @@ include("head.inc"); ?>
 				if(is_array($resolved)) { 
 					foreach($resolved as $hostitem) {
 						if($hostitem <> "") {
-							echo $hostitem . "<br/>";
+							echo $hostitem . "<br />";
 							$found++;
 						}
 					}
@@ -205,12 +205,12 @@ include("head.inc"); ?>
 				} 
 				if($found > 0) {
 					if($alias_exists) {
-						echo "<br/><font size='-2'>An alias already exists for the hostname " . htmlspecialchars($host) . ".  To overwrite, click <a href='diag_dns.php?host=" . trim(urlencode(htmlspecialchars($host))) . "&createalias=true&override=true'>here</a>.";
+						echo "<br /><font size='-2'>An alias already exists for the hostname " . htmlspecialchars($host) . ".  To overwrite, click <a href='diag_dns.php?host=" . trim(urlencode(htmlspecialchars($host))) . "&createalias=true&override=true'>here</a>.";
 					} else { 
 						if(!$createdalias) {
-							echo "<br/><font size='-2'><a href='diag_dns.php?host=" . trim(urlencode(htmlspecialchars($host))) . "&createalias=true'>Create alias</a> out of these entries.";
+							echo "<br /><font size='-2'><a href='diag_dns.php?host=" . trim(urlencode(htmlspecialchars($host))) . "&createalias=true'>Create alias</a> out of these entries.";
 						} else {
-							echo "<br/><font size='-2'>Alias created with name " . htmlspecialchars($newalias['name']);
+							echo "<br /><font size='-2'>Alias created with name " . htmlspecialchars($newalias['name']);
 						}
 					}
 				}
@@ -257,10 +257,10 @@ include("head.inc"); ?>
 		<tr>
 			<td width="22%" valign="top"  class="vncell"><?=gettext("More Information:");?></td>
 			<td width="78%" class="vtable">
-				<a target="_new" href ="/diag_ping.php?host=<?=htmlspecialchars($host)?>&interface=wan&count=3"><?=gettext("Ping");?></a> <br/>
+				<a target="_new" href ="/diag_ping.php?host=<?=htmlspecialchars($host)?>&interface=wan&count=3"><?=gettext("Ping");?></a> <br />
 				<a target="_new" href ="/diag_traceroute.php?host=<?=htmlspecialchars($host)?>&ttl=18"><?=gettext("Traceroute");?></a>
 				<p/>
-				<?=gettext("NOTE: The following links are to external services, so their reliability cannot be guaranteed.");?><br/><br/>
+				<?=gettext("NOTE: The following links are to external services, so their reliability cannot be guaranteed.");?><br /><br />
 				<a target="_new" href="http://private.dnsstuff.com/tools/whois.ch?ip=<?php echo $ipaddr; ?>"><?=gettext("IP WHOIS @ DNS Stuff");?></a><br />
 				<a target="_new" href="http://private.dnsstuff.com/tools/ipall.ch?ip=<?php echo $ipaddr; ?>"><?=gettext("IP Info @ DNS Stuff");?></a>
 			</td>
@@ -269,7 +269,7 @@ include("head.inc"); ?>
 		<tr>
 		  <td width="22%" valign="top">&nbsp;</td>
 		  <td width="78%">
-			<br/>&nbsp;
+			<br />&nbsp;
             <input name="Submit" type="submit" class="formbtn" value="<?=gettext("DNS Lookup");?>">
 		</td>
 		</tr>

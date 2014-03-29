@@ -95,7 +95,7 @@ include("head.inc");
 						<textarea style="border:1;bordercolordark:#000000;bordercolorlight:#000000" cols="90" rows="9" name="output" id="output" wrap="hard"></textarea>
 						<div id="backupdiv" style="visibility:hidden">
 							<?php if ($g['hidebackupbeforeupgrade'] === false): ?>
-							<br/><input type="checkbox" name="backupbeforeupgrade" id="backupbeforeupgrade" /><?=gettext("Perform full backup prior to upgrade");?>
+							<br /><input type="checkbox" name="backupbeforeupgrade" id="backupbeforeupgrade" /><?=gettext("Perform full backup prior to upgrade");?>
 							<?php endif; ?>
 						</div>
 						<input id='invokeupgrade' style='visibility:hidden' type="submit" value="<?=gettext("Invoke Auto Upgrade"); ?>" />
@@ -181,7 +181,7 @@ if ($g['platform'] == "nanobsd") {
 	$txt .= "  " . gettext("NanoBSD Size") . " : " . trim(file_get_contents("/etc/nanosize.txt")) . "\\n";
 }
 $txt .= "       " . gettext("Built On") .": ".  $current_installed_buildtime . "\\n";
-$txt .= "    " . gettext("New version") .": ".  $remote_version . "\\n\\n";
+$txt .= "    " . gettext("New version") .": ".  htmlspecialchars($remote_version, ENT_QUOTES | ENT_HTML401). "\\n\\n";
 $txt .= "  " . gettext("Update source") .": ".  $updater_url . "\\n";
 update_output_window($txt);
 ?>

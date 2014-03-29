@@ -138,7 +138,7 @@ include("head.inc");
 <?php include("fbegin.inc"); ?>
 <body link="#0000CC" vlink="#0000CC" alink="#0000CC">
 <form action="services_captiveportal_filemanager.php" method="post" enctype="multipart/form-data" name="iform" id="iform">
-<input type="hidden" name="zone" id="zone" value="<?=$cpzone;?>" />
+<input type="hidden" name="zone" id="zone" value="<?=htmlspecialchars($cpzone);?>" />
 <?php if ($input_errors) print_input_errors($input_errors); ?>
 <table width="100%" border="0" cellpadding="0" cellspacing="0">
   <tr><td class="tabnavtbl">
@@ -209,20 +209,20 @@ include("head.inc");
   <?php endif; ?>
 	</table>
 	<span class="vexpl"><span class="red"><strong>
-	<?=gettext("Note:"); ?><br>
+	<?=gettext("Note:"); ?><br />
 	</strong></span>
 	<?=gettext("Any files that you upload here with the filename prefix of captiveportal- will " .
 	"be made available in the root directory of the captive portal HTTP(S) server. " .
 	"You may reference them directly from your portal page HTML code using relative paths. " .
 	"Example: you've uploaded an image with the name 'captiveportal-test.jpg' using the " .
-	"file manager. Then you can include it in your portal page like this:"); ?><br><br>
+	"file manager. Then you can include it in your portal page like this:"); ?><br /><br />
 	<tt>&lt;img src=&quot;captiveportal-test.jpg&quot; width=... height=...&gt;</tt>
-	<br><br>
+	<br /><br />
 	<?=gettext("In addition, you can also upload .php files for execution.  You can pass the filename " .
 	"to your custom page from the initial page by using text similar to:"); ?>
-	<br><br>
+	<br /><br />
 	<tt>&lt;a href="/captiveportal-aup.php?zone=$PORTAL_ZONE$&redirurl=$PORTAL_REDIRURL$"&gt;<?=gettext("Acceptable usage policy"); ?>&lt/a&gt;</tt>
-	<br><br>
+	<br /><br />
 	<?php printf(gettext("The total size limit for all files is %s."), format_bytes($g['captiveportal_element_sizelimit']));?></span>
 </td>
 </tr>

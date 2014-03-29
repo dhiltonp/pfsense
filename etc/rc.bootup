@@ -248,7 +248,7 @@ interfaces_loopback_configure();
 system_syslogd_start();
 
 echo "Starting Secure Shell Services...";
-mwexec_bg("/etc/sshd");
+send_event("service reload sshd");
 echo "done.\n";
 
 /* setup polling */
@@ -318,6 +318,9 @@ system_routing_enable();
 
 /* start dnsmasq service */
 services_dnsmasq_configure();
+
+/* start unbound service */
+services_unbound_configure();
 
 /* Do an initial time sync */
 echo "Starting NTP time client...";
@@ -438,7 +441,6 @@ unset($g['booting']);
 
 /* If there are ipsec dynamic hosts try again to reload the tunnels as rc.newipsecdns does */
 if ($ipsec_dynamic_hosts) {
-	vpn_ipsec_refresh_policies();
 	vpn_ipsec_configure();
 	filter_configure();
 }

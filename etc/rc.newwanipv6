@@ -3,7 +3,7 @@
 /*
         rc.newwanipv6
         Copyright (C) 2006 Scott Ullrich (sullrich@gmail.com)
-        part of pfSense (http://www.pfsense.com)
+        part of pfSense (https://www.pfsense.org)
 
 		Originally part of m0n0wall (http://m0n0.ch)
         Copyright (C) 2003-2005 Manuel Kasper <mk@neon1.net>.
@@ -55,7 +55,10 @@ function restart_packages() {
 }
 
 /* Interface IP address has changed */
-$argument = trim($argv[1], " \n\t");
+if (isset($_GET)) 
+	$argument = $_GET['interface'];
+else
+	$argument = trim($argv[1], " \n\t");
 
 log_error("rc.newwanipv6: Informational is starting {$argument}.");
 
@@ -72,21 +75,25 @@ if(empty($argument)) {
 if (empty($interface)) {
 	filter_configure();
 	// restart_packages();
-	exit;
+	return;
 }
 
 //Do not process while booting
 if ($g['booting'] && $config['interfaces'][$interface]['ipaddrv6'] != "dhcp6")
-	exit;
+	return;
 
 if (empty($curwanipv6) || !is_ipaddrv6($curwanipv6)) {
         log_error("rc.newwanipv6: Failed to update {$interface} IPv6, restarting...");
 	// send_event("interface reconfigure {$interface}");
-        exit;
+        return;
 }
 
-if (!empty($_ENV['new_domain_name_servers'])) {
-	$name_servers = explode(" ", $_ENV['new_domain_name_servers']);
+if (isset($_GET))
+	$new_domain_name_servers = $_GET['dmips'];
+else
+	$new_domain_name_servers = getenv("new_domain_name_servers");
+if (!empty($new_domain_name_servers)) {
+	$name_servers = explode(" ", $new_domain_name_servers);
 	$valid_ns = array();
 	foreach($name_servers as $ns) {
 		if (is_ipaddrv6(trim($ns)))
@@ -96,8 +103,12 @@ if (!empty($_ENV['new_domain_name_servers'])) {
 	if (count($valid_ns > 0))
 		file_put_contents("{$g['varetc_path']}/nameserver_v6{$interface}", implode("\n", $valid_ns));
 }
-if (!empty($_ENV['new_domain_name']))
-	file_put_contents("{$g['varetc_path']}/searchdomain_v6{$interface}", $_ENV['new_domain_name']);
+if (isset($_GET))
+	$new_domain_name = $_GET['dmnames'];
+else
+	$new_domain_name = getenv("new_domain_name");
+if (!empty($new_domain_name))
+	file_put_contents("{$g['varetc_path']}/searchdomain_v6{$interface}", $new_domain_name);
 
 /* write current WAN IPv6 to file */
 file_put_contents("{$g['vardb_path']}/{$interface}_ipv6", $curwanipv6);
@@ -137,7 +148,7 @@ if (is_ipaddrv6($oldipv6)) {
 			if (substr($interface_real, 0, 4) != "ovpn")
 				openvpn_resync_all($interface);
 		}
-		exit;
+		return;
 	} else if (does_interface_exist($interface_real))
 		mwexec("/sbin/ifconfig {$interface_real} inet6 {$oldipv6} delete");
 }

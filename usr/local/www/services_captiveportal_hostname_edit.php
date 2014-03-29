@@ -72,8 +72,9 @@ if (!is_array($config['captiveportal']))
         $config['captiveportal'] = array();
 $a_cp =& $config['captiveportal'];
 
-$id = $_GET['id'];
-if (isset($_POST['id']))
+if (is_numericint($_GET['id']))
+	$id = $_GET['id'];
+if (isset($_POST['id']) && is_numericint($_POST['id']))
 	$id = $_POST['id'];
 
 if (!is_array($a_cp[$cpzone]['allowedhostname']))
@@ -169,7 +170,7 @@ include("head.inc");
 				</option>
 		<?php endforeach; ?>
 			</select>
-			<br> 
+			<br /> 
 			<span class="vexpl"><?=gettext("Use"); ?> <em><?=gettext("From"); ?></em> <?=gettext("to always allow an Hostname through the captive portal (without authentication)"); ?>. 
 				<?=gettext("Use"); ?> <em><?=gettext("To"); ?></em> <?=gettext("to allow access from all clients (even non-authenticated ones) behind the portal to this Hostname"); ?>.</span></td>
 		</tr>
@@ -177,26 +178,26 @@ include("head.inc");
 			<td width="22%" valign="top" class="vncellreq"><?=gettext("Hostname"); ?></td>
 			<td width="78%" class="vtable"> 
 				<?=$mandfldhtml;?><input name="hostname" type="text" class="formfld unknown" id="hostname" size="17" value="<?=htmlspecialchars($pconfig['hostname']);?>">
-			<br> 
+			<br /> 
 			<span class="vexpl"><?=gettext("Hostname");?>.</span></td>
 		</tr>
 		<tr>
 			<td width="22%" valign="top" class="vncell"><?=gettext("Description"); ?></td>
 			<td width="78%" class="vtable"> 
 			<input name="descr" type="text" class="formfld unknown" id="descr" size="40" value="<?=htmlspecialchars($pconfig['descr']);?>">
-			<br> <span class="vexpl"><?=gettext("You may enter a description here for your reference (not parsed)"); ?>.</span></td>
+			<br /> <span class="vexpl"><?=gettext("You may enter a description here for your reference (not parsed)"); ?>.</span></td>
 			</tr>
 		<tr>
 			<td width="22%" valign="top" class="vncell"><?=gettext("Bandwidth up"); ?></td>
 			<td width="78%" class="vtable">
 			<input name="bw_up" type="text" class="formfld unknown" id="bw_up" size="10" value="<?=htmlspecialchars($pconfig['bw_up']);?>">
-			<br> <span class="vexpl"><?=gettext("Enter a upload limit to be enforced on this Hostname in Kbit/s"); ?></span></td>
+			<br /> <span class="vexpl"><?=gettext("Enter a upload limit to be enforced on this Hostname in Kbit/s"); ?></span></td>
 		</tr>
 		<tr>
 			<td width="22%" valign="top" class="vncell"><?=gettext("Bandwidth down"); ?></td>
 			<td width="78%" class="vtable">
 			<input name="bw_down" type="text" class="formfld unknown" id="bw_down" size="10" value="<?=htmlspecialchars($pconfig['bw_down']);?>">
-			<br> <span class="vexpl"><?=gettext("Enter a download limit to be enforced on this Hostname in Kbit/s"); ?></span></td>
+			<br /> <span class="vexpl"><?=gettext("Enter a download limit to be enforced on this Hostname in Kbit/s"); ?></span></td>
 		</tr>
 		<tr>
 			<td width="22%" valign="top">&nbsp;</td>

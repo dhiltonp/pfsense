@@ -115,25 +115,29 @@ if ($_POST) {
 		$input_errors[] = gettext("The domain may only contain the characters a-z, 0-9, '-' and '.'.");
 	}
 
+	$ignore_posted_dnsgw = array();
+
 	for ($dnscounter=1; $dnscounter<5; $dnscounter++){
 		$dnsname="dns{$dnscounter}";
 		$dnsgwname="dns{$dnscounter}gw";
 		if (($_POST[$dnsname] && !is_ipaddr($_POST[$dnsname]))) {
-			$input_errors[] = gettext("A valid IP address must be specified for the DNS server $dnscounter.");
-		}
-		if(($_POST[$dnsgwname] <> "") && (is_ipaddr($_POST[$dnsname]))) {
-			if (($_POST[$dnsgwname] <> "none") && (is_ipaddrv4($_POST[$dnsname])) && (validate_address_family($_POST[$dnsname], $_POST[$dnsgwname]) === false )) {
-				$input_errors[] = gettext("You can not specify a IPv6 gateway '{$_POST[$dnsgwname]}'for a IPv4 DNS server '{$_POST[$dnsname]}'");
+			$input_errors[] = gettext("A valid IP address must be specified for DNS server $dnscounter.");
+		} else {
+			if(($_POST[$dnsgwname] <> "") && ($_POST[$dnsgwname] <> "none")) {
+				// A real gateway has been selected.
+				if (is_ipaddr($_POST[$dnsname])) {
+					if ((is_ipaddrv4($_POST[$dnsname])) && (validate_address_family($_POST[$dnsname], $_POST[$dnsgwname]) === false )) {
+						$input_errors[] = gettext("You can not specify IPv6 gateway '{$_POST[$dnsgwname]}' for IPv4 DNS server '{$_POST[$dnsname]}'");
+					}
+					if ((is_ipaddrv6($_POST[$dnsname])) && (validate_address_family($_POST[$dnsname], $_POST[$dnsgwname]) === false )) {
+						$input_errors[] = gettext("You can not specify IPv4 gateway '{$_POST[$dnsgwname]}' for IPv6 DNS server '{$_POST[$dnsname]}'");
+					}
+				} else {
+					// The user selected a gateway but did not provide a DNS address. Be nice and set the gateway back to "none".
+					$ignore_posted_dnsgw[$dnsgwname] = true;
+				}
 			}
-			if (($_POST[$dnsgwname] <> "none") && (is_ipaddrv6($_POST[$dnsname])) && (validate_address_family($_POST[$dnsname], $_POST[$dnsgwname]) === false )) {
-				$input_errors[] = gettext("You can not specify a IPv4 gateway '{$_POST[$dnsgwname]}'for a IPv6 DNS server '{$_POST[$dnsname]}'");
-			}
 		}
-	}
-
-	if ($_POST['webguiport'] && (!is_numericint($_POST['webguiport']) ||
-			($_POST['webguiport'] < 1) || ($_POST['webguiport'] > 65535))) {
-		$input_errors[] = gettext("A valid TCP/IP port must be specified for the webConfigurator port.");
 	}
 
 	$direct_networks_list = explode(" ", filter_get_direct_networks_list());
@@ -183,6 +187,7 @@ if ($_POST) {
 		}
 
 		/* XXX - billm: these still need updating after figuring out how to check if they actually changed */
+		$olddnsservers = $config['system']['dnsserver'];
 		unset($config['system']['dnsserver']);
 		if ($_POST['dns1'])
 			$config['system']['dnsserver'][] = $_POST['dns1'];
@@ -204,13 +209,47 @@ if ($_POST) {
 			unset($config['system']['dnslocalhost']);
 
 		/* which interface should the dns servers resolve through? */
+		$outdnscounter = 0;
 		for ($dnscounter=1; $dnscounter<5; $dnscounter++) {
 			$dnsname="dns{$dnscounter}";
 			$dnsgwname="dns{$dnscounter}gw";
-			if($_POST[$dnsgwname]) {
-				$config['system'][$dnsgwname] = $pconfig[$dnsgwname];
-			} else {
-				unset($config['system'][$dnsgwname]);
+			$olddnsgwname = $config['system'][$dnsgwname];
+
+			if ($ignore_posted_dnsgw[$dnsgwname])
+				$thisdnsgwname = "none";
+			else
+				$thisdnsgwname = $pconfig[$dnsgwname];
+
+			// "Blank" out the settings for this index, then we set them below using the "outdnscounter" index.
+			$config['system'][$dnsgwname] = "none";
+			$pconfig[$dnsgwname] = "none";
+			$pconfig[$dnsname] = "";
+
+			if ($_POST[$dnsname]) {
+				// Only the non-blank DNS servers were put into the config above.
+				// So we similarly only add the corresponding gateways sequentially to the config (and to pconfig), as we find non-blank DNS servers.
+				// This keeps the DNS server IP and corresponding gateway "lined up" when the user blanks out a DNS server IP in the middle of the list.
+				$outdnscounter++;
+				$outdnsname="dns{$outdnscounter}";
+				$outdnsgwname="dns{$outdnscounter}gw";
+				$pconfig[$outdnsname] = $_POST[$dnsname];
+				if($_POST[$dnsgwname]) {
+					$config['system'][$outdnsgwname] = $thisdnsgwname;
+					$pconfig[$outdnsgwname] = $thisdnsgwname;
+				} else {
+					// Note: when no DNS GW name is chosen, the entry is set to "none", so actually this case never happens.
+					unset($config['system'][$outdnsgwname]);
+					$pconfig[$outdnsgwname] = "";
+				}
+			}
+			if (($olddnsgwname != "") && ($olddnsgwname != "none") && (($olddnsgwname != $thisdnsgwname) || ($olddnsservers[$dnscounter-1] != $_POST[$dnsname]))) {
+				// A previous DNS GW name was specified. It has now gone or changed, or the DNS server address has changed.
+				// Remove the route. Later calls will add the correct new route if needed.
+				if (is_ipaddrv4($olddnsservers[$dnscounter-1]))
+					mwexec("/sbin/route delete " . escapeshellarg($olddnsservers[$dnscounter-1]));
+				else
+					if (is_ipaddrv6($olddnsservers[$dnscounter-1]))
+						mwexec("/sbin/route delete -inet6 " . escapeshellarg($olddnsservers[$dnscounter-1]));
 			}
 		}
 
@@ -233,6 +272,8 @@ if ($_POST) {
 		
 		$savemsg = get_std_save_message($retval);
 	}
+
+	unset($ignore_posted_dnsgw);
 }
 
 $pgtitle = array(gettext("System"),gettext("General Setup"));
@@ -260,10 +301,10 @@ include("head.inc");
 			<tr>
 				<td width="22%" valign="top" class="vncellreq"><?=gettext("Hostname"); ?></td>
 				<td width="78%" class="vtable"> <input name="hostname" type="text" class="formfld unknown" id="hostname" size="40" value="<?=htmlspecialchars($pconfig['hostname']);?>" />
-					<br/>
+					<br />
 					<span class="vexpl">
 						<?=gettext("Name of the firewall host, without domain part"); ?>
-						<br/>
+						<br />
 						<?=gettext("e.g."); ?> <em>firewall</em>
 					</span>
 				</td>
@@ -271,10 +312,10 @@ include("head.inc");
 			<tr>
 				<td width="22%" valign="top" class="vncellreq"><?=gettext("Domain"); ?></td>
 				<td width="78%" class="vtable"> <input name="domain" type="text" class="formfld unknown" id="domain" size="40" value="<?=htmlspecialchars($pconfig['domain']);?>" />
-					<br/>
+					<br />
 					<span class="vexpl">
 						<?=gettext("Do not use 'local' as a domain name. It will cause local hosts running mDNS (avahi, bonjour, etc.) to be unable to resolve local hosts not running mDNS."); ?>
-						<br/>
+						<br />
 						<?=gettext("e.g."); ?> <em><?=gettext("mycorp.com, home, office, private, etc."); ?></em>
 					</span>
 				</td>
@@ -282,7 +323,7 @@ include("head.inc");
 			<tr>
 				<td width="22%" valign="top" class="vncell"><?=gettext("DNS servers"); ?></td>
 				<td width="78%" class="vtable">
-						<br/>
+						<br />
 						<table summary="dns servers and gateways">
 							<tr>
 								<td><b><?=gettext("DNS Server"); ?></b></td>
@@ -336,19 +377,19 @@ include("head.inc");
 						<span class="vexpl">
 							<?=gettext("Enter IP addresses to be used by the system for DNS resolution. " .
 							"These are also used for the DHCP service, DNS forwarder and for PPTP VPN clients."); ?>
-							<br/>
+							<br />
 							<?php if($multiwan): ?>
-							<br/>
+							<br />
 							<?=gettext("In addition, optionally select the gateway for each DNS server. " .
 							"When using multiple WAN connections there should be at least one unique DNS server per gateway."); ?>
-							<br/>
+							<br />
 							<?php endif; ?>
-							<br/>
+							<br />
 							<input name="dnsallowoverride" type="checkbox" id="dnsallowoverride" value="yes" <?php if ($pconfig['dnsallowoverride']) echo "checked=\"checked\""; ?> />
 							<strong>
 								<?=gettext("Allow DNS server list to be overridden by DHCP/PPP on WAN"); ?>
 							</strong>
-							<br/>
+							<br />
 							<?php printf(gettext("If this option is set, %s will " .
 							"use DNS servers assigned by a DHCP/PPP server on WAN " .
 							"for its own purposes (including the DNS forwarder). " .
@@ -377,7 +418,7 @@ include("head.inc");
 						</option>
 						<?php endforeach; ?>
 					</select>
-					<br/>
+					<br />
 					<span class="vexpl">
 						<?=gettext("Select the location closest to you"); ?>
 					</span>
@@ -388,7 +429,7 @@ include("head.inc");
 				<td width="22%" valign="top" class="vncell">Time update interval</td>
 				<td width="78%" class="vtable">
 					<input name="timeupdateinterval" type="text" class="formfld unknown" id="timeupdateinterval" size="4" value="<?=htmlspecialchars($pconfig['timeupdateinterval']);?>" />
-					<br/>
+					<br />
 					<span class="vexpl">
 						Minutes between network time sync. 300 recommended,
 						or 0 to disable
@@ -400,7 +441,7 @@ include("head.inc");
 				<td width="22%" valign="top" class="vncell"><?=gettext("NTP time server"); ?></td>
 				<td width="78%" class="vtable">
 					<input name="timeservers" type="text" class="formfld unknown" id="timeservers" size="40" value="<?=htmlspecialchars($pconfig['timeservers']);?>" />
-					<br/>
+					<br />
 					<span class="vexpl">
 						<?=gettext("Use a space to separate multiple hosts (only one " .
 						"required). Remember to set up at least one DNS server " .

@@ -122,7 +122,7 @@ function parse_cisco_acl($attribs) {
 				$tmprule .= "from any";
 				$index++;
 			} else {
-				$tmprule .= "from $rule[$index]";
+				$tmprule .= "from {$rule[$index]}";
 				$index++;
 				$netmask = cisco_to_cidr($rule[$index]);
 				$tmprule .= "/{$netmask} ";
@@ -141,7 +141,7 @@ function parse_cisco_acl($attribs) {
 				$index++;
 				$tmprule .= "to any";
 			} else {
-				$tmprule .= "to $rule[$index]";
+				$tmprule .= "to {$rule[$index]}";
 				$index++;
 				$netmask = cisco_to_cidr($rule[$index]);
 				$tmprule .= "/{$netmask} ";
@@ -179,7 +179,7 @@ $rules = parse_cisco_acl($attributes);
 if (!empty($rules)) {
 	$pid = posix_getpid();
 	@file_put_contents("/tmp/ovpn_{$pid}{$common_name}.rules", $rules);
-	mwexec("/sbin/pfctl -a \"openvpn/{$common_name}\" -f {$g['tmp_path']}/ovpn_{$pid}{$common_name}.rules");
+	mwexec("/sbin/pfctl -a " . escapeshellarg("openvpn/{$common_name}") . " -f {$g['tmp_path']}/ovpn_{$pid}" . escapeshellarg($common_name) . ".rules");
 	@unlink("{$g['tmp_path']}/ovpn_{$pid}{$common_name}.rules");
 }
 

@@ -99,22 +99,16 @@ function leasecmp($a, $b) {
 function adjust_gmt($dt) {
 	global $config; 
 	$dhcpd = $config['dhcpd'];
-	foreach ($dhcpd as $dhcpleaseinlocaltime) {
-		$dhcpleaseinlocaltime = $dhcpleaseinlocaltime['dhcpleaseinlocaltime'];
+	foreach ($dhcpd as $dhcpditem) {
+		$dhcpleaseinlocaltime = $dhcpditem['dhcpleaseinlocaltime'];
 		if ($dhcpleaseinlocaltime == "yes") 
 			break;
 	}
-	$timezone = $config['system']['timezone'];
-	$ts = strtotime($dt . " GMT");
 	if ($dhcpleaseinlocaltime == "yes") {
-		$this_tz = new DateTimeZone($timezone); 
-		$dhcp_lt = new DateTime(strftime("%I:%M:%S%p", $ts), $this_tz); 
-		$offset = $this_tz->getOffset($dhcp_lt);
-		$ts = $ts + $offset;
+		$ts = strtotime($dt . " GMT");
 		return strftime("%Y/%m/%d %I:%M:%S%p", $ts);
-	}
-	else
-		return strftime("%Y/%m/%d %H:%M:%S", $ts);
+	} else
+		return $dt;
 }
 
 function remove_duplicate($array, $field)
@@ -383,13 +377,13 @@ foreach ($leases as $data) {
 		$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
                 if ($data['online'] != "online") {
 			if(isset($mac_man[$mac_hi])){ // Manufacturer for this MAC is defined
-	                        echo "<td class=\"listr\">{$fspans}<a href=\"services_wol.php?if={$data['if']}&mac=$mac\" title=\"" . gettext("$mac - send Wake on LAN packet to this MAC address") ."\">{$mac}</a><br/><font size=\"-2\"><i>{$mac_man[$mac_hi]}</i></font>{$fspane}&nbsp;</td>\n";
+	                        echo "<td class=\"listr\">{$fspans}<a href=\"services_wol.php?if={$data['if']}&mac=$mac\" title=\"" . gettext("$mac - send Wake on LAN packet to this MAC address") ."\">{$mac}</a><br /><font size=\"-2\"><i>{$mac_man[$mac_hi]}</i></font>{$fspane}&nbsp;</td>\n";
 			}else{	
                         	echo "<td class=\"listr\">{$fspans}<a href=\"services_wol.php?if={$data['if']}&mac={$data['mac']}\" title=\"" . gettext("send Wake on LAN packet to this MAC address") ."\">{$data['mac']}</a>{$fspane}&nbsp;</td>\n";
 			}
                 }else{
 			if(isset($mac_man[$mac_hi])){ // Manufacturer for this MAC is defined
-				echo "<td class=\"listr\">{$fspans}{$mac}<br/><font size=\"-2\"><i>{$mac_man[$mac_hi]}</i></font>{$fspane}&nbsp;</td>\n";
+				echo "<td class=\"listr\">{$fspans}{$mac}<br /><font size=\"-2\"><i>{$mac_man[$mac_hi]}</i></font>{$fspane}&nbsp;</td>\n";
 	                }else{
                 		echo "<td class=\"listr\">{$fspans}{$data['mac']}{$fspane}&nbsp;</td>\n";
 			}
