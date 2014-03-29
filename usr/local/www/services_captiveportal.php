@@ -620,7 +620,7 @@ function enable_change(enable_change) {
           </tr>
           <tr>
             <td></td>
-            <td><?= gettext("Uses the SMTP configuration defined in System->Advanced->Notifications."); ?></td>
+            <td><?= gettext("^Uses the SMTP configuration defined in System->Advanced->Notifications."); ?></td>
           </tr>
           <tr>
             <td><?= gettext("Pop3 server"); ?></td>
