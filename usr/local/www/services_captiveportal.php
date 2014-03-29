@@ -95,6 +95,12 @@ if ($a_cp[$cpzone]) {
 	$pconfig['freelogins_resettimeout'] = $a_cp[$cpzone]['freelogins_resettimeout'];
 	$pconfig['freelogins_updatetimeouts'] = isset($a_cp[$cpzone]['freelogins_updatetimeouts']);
 	$pconfig['enable'] = isset($a_cp[$cpzone]['enable']);
+	$pconfig['captiveemail'] = $a_cp[$cpzone]['captiveemail'];
+	$pconfig['pop3server'] = $a_cp[$cpzone]['pop3server'];
+	$pconfig['pop3port'] = $a_cp[$cpzone]['pop3port'];
+	$pconfig['pop3user'] = $a_cp[$cpzone]['pop3user'];
+	$pconfig['pop3password'] = $a_cp[$cpzone]['pop3password'];
+	$pconfig['auth_method'] = $a_cp[$cpzone]['auth_method'];
 	$pconfig['auth_method'] = $a_cp[$cpzone]['auth_method'];
 	$pconfig['localauth_priv'] = isset($a_cp[$cpzone]['localauth_priv']);
 	$pconfig['radacct_enable'] = isset($a_cp[$cpzone]['radacct_enable']);
@@ -266,6 +272,12 @@ if ($_POST) {
 			$newcp['enable'] = true;
 		else
 			unset($newcp['enable']);
+		$newcp['captiveplea'] = $_POST['captiveplea'];
+		$newcp['captiveemail'] = $_POST['captiveemail'];
+		$newcp['pop3server'] = $_POST['pop3server'];
+		$newcp['pop3port'] = $_POST['pop3port'];
+		$newcp['pop3user'] = $_POST['pop3user'];
+		$newcp['pop3password'] = $_POST['pop3password'];
 		$newcp['auth_method'] = $_POST['auth_method'];
 		$newcp['localauth_priv'] = isset($_POST['localauth_priv']);
 		$newcp['radacct_enable'] = $_POST['radacct_enable'] ? true : false;
@@ -586,6 +598,47 @@ function enable_change(enable_change) {
         </tr></table>
         <br>
         <?=gettext("If this option is set, the captive portal will restrict each user who logs in to the specified default bandwidth. RADIUS can override the default settings. Leave empty or set to 0 for no limit."); ?> </td>
+	</tr>
+	<tr>
+      <td valign="top" class="vncell"><?= gettext("Interactive plea"); ?></td>
+      <td class="vtable">
+        <input name="captiveplea" type="checkbox" class="formfld" id="captiveplea"
+               value="yes" <?php if ($pconfig['captiveplea']) echo "checked"; ?>>
+        <strong><?= gettext("Enable captive plea"); ?></strong><br><br>
+        <table cellpadding="0" cellspacing="0">
+          <tr>
+            <td><?= gettext("Notification email address"); ?></td>
+            <td><input type="text" class="formfld" name="captiveemail" id="captiveemail" size="15"
+                       value="<?= htmlspecialchars($pconfig['captiveemail']); ?>"> <?= gettext("(sms gateway?)"); ?>
+            </td>
+          </tr>
+          <tr>
+            <td></td>
+            <td><?= gettext("Uses the SMTP configuration defined in System->Advanced->Notifications."); ?></td>
+          </tr>
+          <tr>
+            <td><?= gettext("Pop3 server"); ?></td>
+            <td><input type="text" class="formfld" name="pop3server" id="pop3server" size="15"
+                       value="<?= htmlspecialchars($pconfig['pop3server']); ?>"> <?= gettext(""); ?></td>
+          </tr>
+          <tr>
+            <td><?= gettext("Pop3 port"); ?></td>
+            <td><input type="text" class="formfld" name="pop3port" id="pop3port" size="15"
+                       value="<?= htmlspecialchars($pconfig['pop3port']); ?>"> <?= gettext(""); ?></td>
+          </tr>
+          <tr>
+            <td><?= gettext("Pop3 username"); ?></td>
+            <td><input type="text" class="formfld" name="pop3user" id="pop3user" size="15"
+                       value="<?= htmlspecialchars($pconfig['pop3user']); ?>"> <?= gettext(""); ?></td>
+          </tr>
+          <tr>
+            <td><?= gettext("Pop3 password"); ?></td>
+            <td><input type="password" class="formfld" name="pop3password" id="pop3password" size="15"
+                       value="<?= str_repeat("*", strlen($pconfig['pop3password'])); ?>"> <?= gettext(""); ?></td>
+          </tr>
+        </table>
+        <br>
+        <?= gettext("If enabled, after the user is authenticated, a window will open allowing them to enter a plea for access which will be sent to the configured address. By default the user will not have access until the plea is granted."); ?>
 	</tr>
 	<tr>
 	  <td width="22%" valign="top" class="vncell"><?=gettext("Authentication"); ?></td>
