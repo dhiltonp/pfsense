@@ -614,7 +614,7 @@ function enable_change(enable_change) {
         <table cellpadding="0" cellspacing="0">
           <tr>
             <td><?= gettext("Notification email address"); ?></td>
-            <td><input type="text" class="formfld unknown" name="captiveemail" id="captiveemail" size="15"
+            <td><input type="text" class="formfld unknown" name="captiveemail" id="captiveemail" size="30"
                        value="<?= htmlspecialchars($pconfig['captiveemail']); ?>"> <?= gettext("(sms gateway?)"); ?>
             </td>
           </tr>
@@ -624,22 +624,22 @@ function enable_change(enable_change) {
           </tr>
           <tr>
             <td><?= gettext("Pop3 server"); ?></td>
-            <td><input type="text" class="formfld unknown" name="pop3server" id="pop3server" size="15"
+            <td><input type="text" class="formfld unknown" name="pop3server" id="pop3server" size="30"
                        value="<?= htmlspecialchars($pconfig['pop3server']); ?>"> <?= gettext(""); ?></td>
           </tr>
           <tr>
             <td><?= gettext("Pop3 port"); ?></td>
-            <td><input type="text" class="formfld unknown" name="pop3port" id="pop3port" size="15"
+            <td><input type="text" class="formfld unknown" name="pop3port" id="pop3port" size="30"
                        value="<?= htmlspecialchars($pconfig['pop3port']); ?>"> <?= gettext(""); ?></td>
           </tr>
           <tr>
             <td><?= gettext("Pop3 username"); ?></td>
-            <td><input type="text" class="formfld user" name="pop3user" id="pop3user" size="15"
+            <td><input type="text" class="formfld user" name="pop3user" id="pop3user" size="30"
                        value="<?= htmlspecialchars($pconfig['pop3user']); ?>"> <?= gettext(""); ?></td>
           </tr>
           <tr>
             <td><?= gettext("Pop3 password"); ?></td>
-            <td><input type="password" class="formfld pwd" name="pop3password" id="pop3password" size="15"
+            <td><input type="password" class="formfld pwd" name="pop3password" id="pop3password" size="30"
                        value="<?= str_repeat("*", strlen($pconfig['pop3password'])); ?>"> <?= gettext(""); ?></td>
           </tr>
         </table>
