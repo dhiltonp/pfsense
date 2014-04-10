@@ -1773,7 +1773,6 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 	if ($attributes['voucher'])
 		$remaining_time = $attributes['session_timeout'];
 
-	$writecfg = false;
 	/* Find an existing session */
 	if ((isset($config['captiveportal'][$cpzone]['noconcurrentlogins'])) && $passthrumac) {
 		if (isset($config['captiveportal'][$cpzone]['passthrumacadd'])) {
@@ -1803,7 +1802,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 							$macrules .= captiveportal_passthrumac_configure_entry($mac);
 							file_put_contents("{$g['tmp_path']}/macentry_{$cpzone}.rules.tmp", $macrules);
 							mwexec("/sbin/ipfw -x {$cpzone} -q {$g['tmp_path']}/macentry_{$cpzone}.rules.tmp");
-							$writecfg = true;
+							write_config();
 							$sessionid = true;
 							break;
 						}
@@ -1903,7 +1902,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			$macrules = captiveportal_passthrumac_configure_entry($mac);
 			file_put_contents("{$g['tmp_path']}/macentry_{$cpzone}.rules.tmp", $macrules);
 			mwexec("/sbin/ipfw -x {$cpzone} -q {$g['tmp_path']}/macentry_{$cpzone}.rules.tmp");
-			$writecfg = true;
+			write_config();
 		} else {
 			/* See if a pipeno is passed, if not start sessions because this means there isn't one atm */
 			if (is_null($pipeno))
@@ -1970,9 +1969,6 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 		}
 	} else
 		unlock($cpdblck);
-
-	if ($writecfg == true)
-		write_config();
 
 	/* redirect user to desired destination */
 	if (!empty($attributes['url_redirection']))
