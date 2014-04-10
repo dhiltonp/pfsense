@@ -1774,46 +1774,18 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 		$remaining_time = $attributes['session_timeout'];
 
 	/* Find an existing session */
-	/* MAC passthrough reset? */
-	if ((isset($config['captiveportal'][$cpzone]['noconcurrentlogins'])) && $passthrumac) {
-		if (isset($config['captiveportal'][$cpzone]['passthrumacadd'])) {
-			$mac = captiveportal_passthrumac_findbyname($username);
-			if (!empty($mac)) {
-				if ($_POST['replacemacpassthru']) {
-					foreach ($config['captiveportal'][$cpzone]['passthrumac'] as $idx => $macent) {
-						if ($macent['mac'] == $mac['mac']) {
-							$macrules = "";
-							$ruleno = captiveportal_get_ipfw_passthru_ruleno($mac['mac']);
-							$pipeno = captiveportal_get_dn_passthru_ruleno($mac['mac']);
-							if ($ruleno) {
-								captiveportal_free_ipfw_ruleno($ruleno);
-								$macrules .= "delete {$ruleno}\n";
-								++$ruleno;
-								$macrules .= "delete {$ruleno}\n";
-							}
-							if ($pipeno) {
-								captiveportal_free_dn_ruleno($pipeno);
-								$macrules .= "pipe delete {$pipeno}\n";
-								++$pipeno;
-								$macrules .= "pipe delete {$pipeno}\n";
-							}
-							unset($config['captiveportal'][$cpzone]['passthrumac'][$idx]);
-							$mac['mac'] = $clientmac;
-							$config['captiveportal'][$cpzone]['passthrumac'][] = $mac;
-							$macrules .= captiveportal_passthrumac_configure_entry($mac);
-							file_put_contents("{$g['tmp_path']}/macentry_{$cpzone}.rules.tmp", $macrules);
-							mwexec("/sbin/ipfw -x {$cpzone} -q {$g['tmp_path']}/macentry_{$cpzone}.rules.tmp");
-							write_config();
-							$sessionid = true;
-							break;
-						}
-					}
-				} else {
-					portal_reply_page($redirurl, "error", "Username: {$username} is already authenticated using another MAC address.",
-						$clientmac, $clientip, $username, $password);
-					unlock($cpdblck);
-					return;
-				}
+	/* MAC passthrough reassign? */
+	if (   isset($config['captiveportal'][$cpzone]['noconcurrentlogins'])
+		&& isset($config['captiveportal'][$cpzone]['passthrumacadd'])
+		&& $passthrumac) {
+		$mac = captiveportal_passthrumac_findbyname($username);
+		if (!empty($mac)) {
+			$passthrumac_transferred = portal_transfer_passthrumac($clientmac, $mac);
+			if(!$passthrumac_transferred) {
+				portal_reply_page($redirurl, "error", "Username: {$username} is already authenticated using another MAC address.",
+					$clientmac, $clientip, $username, $password);
+				unlock($cpdblck);
+				return;
 			}
 		}
 	}
@@ -1877,7 +1849,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 	if ($attributes['voucher'] && $remaining_time <= 0)
 		return 0;       // voucher already used and no time left
 
-	if (!isset($sessionid)) {
+	if (!isset($sessionid) && !$passthrumac_transferred) {
 		/* generate unique session ID */
 		$tod = gettimeofday();
 		$sessionid = substr(md5(mt_rand() . $tod['sec'] . $tod['usec'] . $clientip . $clientmac), 0, 16);
@@ -1996,6 +1968,42 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 	}
 
 	return $sessionid;
+}
+
+function portal_transfer_passthrumac($clientmac, $mac)
+{
+	global $g, $config, $_POST, $cpzone;
+	if ($_POST['replacemacpassthru']) {
+		foreach ($config['captiveportal'][$cpzone]['passthrumac'] as $idx => $macent) {
+			if ($macent['mac'] == $mac['mac']) {
+				$macrules = "";
+				$ruleno = captiveportal_get_ipfw_passthru_ruleno($mac['mac']);
+				$pipeno = captiveportal_get_dn_passthru_ruleno($mac['mac']);
+				if ($ruleno) {
+					captiveportal_free_ipfw_ruleno($ruleno);
+					$macrules .= "delete {$ruleno}\n";
+					++$ruleno;
+					$macrules .= "delete {$ruleno}\n";
+				}
+				if ($pipeno) {
+					captiveportal_free_dn_ruleno($pipeno);
+					$macrules .= "pipe delete {$pipeno}\n";
+					++$pipeno;
+					$macrules .= "pipe delete {$pipeno}\n";
+				}
+				unset($config['captiveportal'][$cpzone]['passthrumac'][$idx]);
+				$mac['mac'] = $clientmac;
+				$config['captiveportal'][$cpzone]['passthrumac'][] = $mac;
+				$macrules .= captiveportal_passthrumac_configure_entry($mac);
+				file_put_contents("{$g['tmp_path']}/macentry_{$cpzone}.rules.tmp", $macrules);
+				mwexec("/sbin/ipfw -x {$cpzone} -q {$g['tmp_path']}/macentry_{$cpzone}.rules.tmp");
+				write_config();
+
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 
