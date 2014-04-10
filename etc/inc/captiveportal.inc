@@ -1790,64 +1790,14 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 		}
 	}
 
-	/* read in client database */
-	$query = "WHERE ip = '{$clientip}'";
-	$tmpusername = strtolower($username);
-	if (isset($config['captiveportal'][$cpzone]['noconcurrentlogins']))
-		$query .= " OR (username != 'unauthenticated' AND lower(username) = '{$tmpusername}')";
-	$cpdb = captiveportal_read_db($query);
-
 	/* Snapshot the timestamp */
 	$allow_time = time();
-	$radiusservers = captiveportal_get_radius_servers();
-	$unsetindexes = array();
-	if (is_null($radiusctx))
-		$radiusctx = 'first';
 
-	foreach ($cpdb as $cpentry) {
-		if (empty($cpentry[11])) {
-			$cpentry[11] = 'first';
-		}
-		/* on the same ip */
-		if ($cpentry[2] == $clientip) {
-			if (isset($config['captiveportal'][$cpzone]['nomacfilter']) || $cpentry[3] == $clientmac)
-				captiveportal_logportalauth($cpentry[4],$cpentry[3],$cpentry[2],"CONCURRENT LOGIN - REUSING OLD SESSION");
-			else
-				captiveportal_logportalauth($cpentry[4],$cpentry[3],$cpentry[2],"CONCURRENT LOGIN - REUSING IP {$cpentry[2]} WITH DIFFERENT MAC ADDRESS {$cpentry[3]}");
-			$sessionid = $cpentry[5];
-			break;
-		}
-		elseif (($attributes['voucher']) && ($username != 'unauthenticated') && ($cpentry[4] == $username)) {
-			// user logged in with an active voucher. Check for how long and calculate 
-			// how much time we can give him (voucher credit - used time)
-			$remaining_time = $cpentry[0] + $cpentry[7] - $allow_time;
-			if ($remaining_time < 0)    // just in case. 
-				$remaining_time = 0;
-
-			/* This user was already logged in so we disconnect the old one */
-			captiveportal_disconnect($cpentry,$radiusservers[$cpentry[11]],13);
-			captiveportal_logportalauth($cpentry[4],$cpentry[3],$cpentry[2],"CONCURRENT LOGIN - TERMINATING OLD SESSION");
-			$unsetindexes[] = $cpentry[5];
-			break;
-		}
-		elseif ((isset($config['captiveportal'][$cpzone]['noconcurrentlogins'])) && ($username != 'unauthenticated')) {
-			/* on the same username */
-			if (strcasecmp($cpentry[4], $username) == 0) {
-				/* This user was already logged in so we disconnect the old one */
-				captiveportal_disconnect($cpentry,$radiusservers[$cpentry[11]],13);
-				captiveportal_logportalauth($cpentry[4],$cpentry[3],$cpentry[2],"CONCURRENT LOGIN - TERMINATING OLD SESSION");
-				$unsetindexes[] = $cpentry[5];
-				break;
-			}
-		}
-	}
-	unset($cpdb);
-
-	if (!empty($unsetindexes))
-		captiveportal_remove_entries($unsetindexes);
+	list($radiusservers, $radiusctx, $sessionid, $remaining_time) = portal_check_concurrent_login($clientip, $clientmac, $username, $allow_time, $attributes, $radiusctx);
 
 	if ($attributes['voucher'] && $remaining_time <= 0)
 		return 0;       // voucher already used and no time left
+						// TODO: respond with message as above?
 
 	if (!isset($sessionid) && !$passthrumac_transferred) {
 		/* generate unique session ID */
@@ -1968,6 +1918,70 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 	}
 
 	return $sessionid;
+}
+
+/**
+ * @param $clientip
+ * @param $clientmac
+ * @param $username
+ * @param $attributes
+ * @param $radiusctx
+ * @return array
+ */
+function portal_check_concurrent_login($clientip, $clientmac, $username, $allow_time, $attributes, $radiusctx)
+{
+	global $config, $cpzone;
+
+	/* read in client database */
+	$query = "WHERE ip = '{$clientip}'";
+	$tmpusername = strtolower($username);
+	if (isset($config['captiveportal'][$cpzone]['noconcurrentlogins']))
+		$query .= " OR (username != 'unauthenticated' AND lower(username) = '{$tmpusername}')";
+	$cpdb = captiveportal_read_db($query);
+
+	$radiusservers = captiveportal_get_radius_servers();
+	$unsetindexes = array();
+	if (is_null($radiusctx))
+		$radiusctx = 'first';
+
+	foreach ($cpdb as $cpentry) {
+		if (empty($cpentry[11])) {
+			$cpentry[11] = 'first';
+		}
+		/* on the same ip */
+		if ($cpentry[2] == $clientip) {
+			if (isset($config['captiveportal'][$cpzone]['nomacfilter']) || $cpentry[3] == $clientmac)
+				captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "CONCURRENT LOGIN - REUSING OLD SESSION");
+			else
+				captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "CONCURRENT LOGIN - REUSING IP {$cpentry[2]} WITH DIFFERENT MAC ADDRESS {$cpentry[3]}");
+			$sessionid = $cpentry[5];
+			break;
+		} elseif (($attributes['voucher']) && ($username != 'unauthenticated') && ($cpentry[4] == $username)) {
+			// user logged in with an active voucher. Check for how long and calculate
+			// how much time we can give him (voucher credit - used time)
+			$remaining_time = $cpentry[0] + $cpentry[7] - $allow_time;
+
+			/* This user was already logged in so we disconnect the old one */
+			captiveportal_disconnect($cpentry, $radiusservers[$cpentry[11]], 13);
+			captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "CONCURRENT LOGIN - TERMINATING OLD SESSION");
+			$unsetindexes[] = $cpentry[5];
+			break;
+		} elseif ((isset($config['captiveportal'][$cpzone]['noconcurrentlogins'])) && ($username != 'unauthenticated')) {
+			/* on the same username */
+			if (strcasecmp($cpentry[4], $username) == 0) {
+				/* This user was already logged in so we disconnect the old one */
+				captiveportal_disconnect($cpentry, $radiusservers[$cpentry[11]], 13);
+				captiveportal_logportalauth($cpentry[4], $cpentry[3], $cpentry[2], "CONCURRENT LOGIN - TERMINATING OLD SESSION");
+				$unsetindexes[] = $cpentry[5];
+				break;
+			}
+		}
+	}
+	unset($cpdb);
+
+	if (!empty($unsetindexes))
+		captiveportal_remove_entries($unsetindexes);
+	return array($radiusservers, $radiusctx, $sessionid, $remaining_time);
 }
 
 function portal_transfer_passthrumac($clientmac, $mac)
