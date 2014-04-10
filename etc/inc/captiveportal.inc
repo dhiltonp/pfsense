@@ -1774,6 +1774,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 		$remaining_time = $attributes['session_timeout'];
 
 	/* Find an existing session */
+	/* MAC passthrough reset? */
 	if ((isset($config['captiveportal'][$cpzone]['noconcurrentlogins'])) && $passthrumac) {
 		if (isset($config['captiveportal'][$cpzone]['passthrumacadd'])) {
 			$mac = captiveportal_passthrumac_findbyname($username);
