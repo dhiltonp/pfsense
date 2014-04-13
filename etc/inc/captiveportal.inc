@@ -2020,6 +2020,15 @@ function portal_transfer_passthrumac($clientmac, $mac)
 	return false;
 }
 
+function portal_send_plea() {
+	global $g, $config, $_POST, $cpzone
+
+}
+
+function portal_poll_plea() {
+	global $g, $config, $_POST, $cpzone
+
+}
 
 /*
  * Used for when pass-through credits are enabled.
