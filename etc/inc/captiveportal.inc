@@ -1790,7 +1790,11 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 		}
 	}
 
-	list($radiusservers, $radiusctx, $sessionid, $remaining_time) = portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusctx);
+	$radiusservers = captiveportal_get_radius_servers();
+	if (is_null($radiusctx))
+		$radiusctx = 'first';
+
+	list($sessionid, $remaining_time) = portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers);
 
 	if ($attributes['voucher'] && $remaining_time <= 0)
 		return 0;       // voucher already used and no time left
@@ -1922,10 +1926,10 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
  * @param $clientmac
  * @param $username
  * @param $attributes
- * @param $radiusctx
- * @return array
+ * @param $radiusservers
+ * @return $sessionid, $remaining_time
  */
-function portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusctx)
+function portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers)
 {
 	global $config, $cpzone;
 
@@ -1936,10 +1940,7 @@ function portal_check_concurrent_login($clientip, $clientmac, $username, $attrib
 		$query .= " OR (username != 'unauthenticated' AND lower(username) = '{$tmpusername}')";
 	$cpdb = captiveportal_read_db($query);
 
-	$radiusservers = captiveportal_get_radius_servers();
 	$unsetindexes = array();
-	if (is_null($radiusctx))
-		$radiusctx = 'first';
 
 	foreach ($cpdb as $cpentry) {
 		if (empty($cpentry[11])) {
@@ -1978,7 +1979,7 @@ function portal_check_concurrent_login($clientip, $clientmac, $username, $attrib
 
 	if (!empty($unsetindexes))
 		captiveportal_remove_entries($unsetindexes);
-	return array($radiusservers, $radiusctx, $sessionid, $remaining_time);
+	return array($sessionid, $remaining_time);
 }
 
 function portal_transfer_passthrumac($clientmac, $mac)
