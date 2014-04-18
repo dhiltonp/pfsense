@@ -1790,10 +1790,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 		}
 	}
 
-	/* Snapshot the timestamp */
-	$allow_time = time();
-
-	list($radiusservers, $radiusctx, $sessionid, $remaining_time) = portal_check_concurrent_login($clientip, $clientmac, $username, $allow_time, $attributes, $radiusctx);
+	list($radiusservers, $radiusctx, $sessionid, $remaining_time) = portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusctx);
 
 	if ($attributes['voucher'] && $remaining_time <= 0)
 		return 0;       // voucher already used and no time left
@@ -1876,7 +1873,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			/* encode password in Base64 just in case it contains commas */
 			$bpassword = base64_encode($password);
 			$insertquery  = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, radiusctx) ";
-			$insertquery .= "VALUES ({$allow_time}, {$pipeno}, '{$clientip}', '{$clientmac}', '{$safe_username}', '{$sessionid}', '{$bpassword}', ";
+			$insertquery .= "VALUES ({$_SERVER['REQUEST_TIME']}, {$pipeno}, '{$clientip}', '{$clientmac}', '{$safe_username}', '{$sessionid}', '{$bpassword}', ";
 			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, '{$radiusctx}')";
 
 			/* store information to database */
@@ -1928,7 +1925,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
  * @param $radiusctx
  * @return array
  */
-function portal_check_concurrent_login($clientip, $clientmac, $username, $allow_time, $attributes, $radiusctx)
+function portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusctx)
 {
 	global $config, $cpzone;
 
@@ -1959,7 +1956,7 @@ function portal_check_concurrent_login($clientip, $clientmac, $username, $allow_
 		} elseif (($attributes['voucher']) && ($username != 'unauthenticated') && ($cpentry[4] == $username)) {
 			// user logged in with an active voucher. Check for how long and calculate
 			// how much time we can give him (voucher credit - used time)
-			$remaining_time = $cpentry[0] + $cpentry[7] - $allow_time;
+			$remaining_time = $cpentry[0] + $cpentry[7] - $_SERVER['REQUEST_TIME'];
 
 			/* This user was already logged in so we disconnect the old one */
 			captiveportal_disconnect($cpentry, $radiusservers[$cpentry[11]], 13);
