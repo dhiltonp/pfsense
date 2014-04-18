@@ -1791,7 +1791,8 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 	if (is_null($radiusctx))
 		$radiusctx = 'first';
 
-	list($sessionid, $remaining_voucher_time) = portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers);
+	# $sessionid and $remaining_voucher_time may both come back as unset
+	list($sessionid, $remaining_voucher_time) = portal_transfer_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers);
 
 	if ($attributes['voucher'] && $remaining_voucher_time <= 0)
 		return 0;       // voucher already used and no time left
@@ -1926,7 +1927,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
  * @param $radiusservers
  * @return $sessionid, $remaining_voucher_time
  */
-function portal_check_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers)
+function portal_transfer_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers)
 {
 	global $config, $cpzone;
 
