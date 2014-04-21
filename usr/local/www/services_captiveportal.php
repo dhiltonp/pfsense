@@ -95,6 +95,7 @@ if ($a_cp[$cpzone]) {
 	$pconfig['freelogins_resettimeout'] = $a_cp[$cpzone]['freelogins_resettimeout'];
 	$pconfig['freelogins_updatetimeouts'] = isset($a_cp[$cpzone]['freelogins_updatetimeouts']);
 	$pconfig['enable'] = isset($a_cp[$cpzone]['enable']);
+	$pconfig['captiveplea_enable'] = isset($a_cp[$cpzone]['captiveplea_enable']);
 	$pconfig['captiveemail'] = $a_cp[$cpzone]['captiveemail'];
 	$pconfig['pop3server'] = $a_cp[$cpzone]['pop3server'];
 	$pconfig['pop3port'] = $a_cp[$cpzone]['pop3port'];
@@ -272,7 +273,7 @@ if ($_POST) {
 			$newcp['enable'] = true;
 		else
 			unset($newcp['enable']);
-		$newcp['captiveplea'] = $_POST['captiveplea'];
+		$newcp['captiveplea_enable'] = $_POST['captiveplea_enable'] ? true : false;
 		$newcp['captiveemail'] = $_POST['captiveemail'];
 		$newcp['pop3server'] = $_POST['pop3server'];
 		$newcp['pop3port'] = $_POST['pop3port'];
@@ -388,7 +389,7 @@ function enable_change(enable_change) {
 	document.iform.timeout.disabled = endis;
 	document.iform.preauthurl.disabled = endis;
 	document.iform.redirurl.disabled = endis;
-	document.iform.captiveplea.disabled = endis;
+	document.iform.captiveplea_enable.disabled = endis;
 	document.iform.captiveemail.disabled = endis;
 	document.iform.pop3server.disabled = endis;
 	document.iform.pop3port.disabled = endis;
@@ -608,8 +609,8 @@ function enable_change(enable_change) {
 	<tr>
       <td valign="top" class="vncell"><?= gettext("Interactive plea"); ?></td>
       <td class="vtable">
-        <input name="captiveplea" type="checkbox" class="formfld" id="captiveplea"
-               value="yes" <?php if ($pconfig['captiveplea']) echo "checked"; ?>>
+        <input name="captiveplea_enable" type="checkbox" class="formfld" id="captiveplea_enable"
+               value="yes" <?php if ($pconfig['captiveplea_enable']) echo "checked"; ?>>
         <strong><?= gettext("Enable captive plea"); ?></strong><br><br>
         <table cellpadding="0" cellspacing="0">
           <tr>
