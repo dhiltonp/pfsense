@@ -2090,7 +2090,7 @@ function generate_plea_id() {
 		}
 	}
 
-	return $plea_id
+	return $plea_id;
 }
 
 /*
