@@ -1258,6 +1258,7 @@ function captiveportal_opendb() {
 
 	if (file_exists("{$g['vardb_path']}/captiveportal{$cpzone}.db"))
 		$DB = @sqlite_open("{$g['vardb_path']}/captiveportal{$cpzone}.db");
+		captiveplea_check_table($DB);
 	else {
 		$errormsg = "";
 		$DB = @sqlite_open("{$g['vardb_path']}/captiveportal{$cpzone}.db");
@@ -1267,11 +1268,24 @@ function captiveportal_opendb() {
 			@sqlite_exec($DB, "CREATE INDEX ip ON captiveportal (ip)");
 			@sqlite_exec($DB, "CREATE INDEX starttime ON captiveportal (allow_time)");
 			@sqlite_exec($DB, "CREATE INDEX serviceid ON captiveportal (serviceid)");
+			captiveplea_check_table($DB);
 		} else
 			captiveportal_syslog("Error during table {$cpzone} creation. Error message: {$errormsg}");
 	}
 
 	return $DB;
+}
+
+function captiveplea_check_table($DB) {
+	global $g, $cpzone;
+
+	$errormsg = "";
+	if (@sqlite_exec($DB, "CREATE TABLE IF NOT EXISTS captiveplea (id INTEGER, username TEXT, sessionid TEXT, plea_id TEXT, expiretime TEXT) ", $errormsg)) {;
+		@sqlite_exec($DB, "CREATE UNIQUE INDEX IF NOT EXISTS plea_id on captiveplea (plea_id)");
+		@sqlite_exec($DB, "CREATE UNIQUE INDEX IF NOT EXISTS sessionid on captiveplea (sessionid)");
+	} else 
+		captiveportal_syslog("Error during captive plea table creation for {$cpzone}.  Error message: {$errormsg}");
+	return;
 }
 
 /* read captive portal DB into array */
@@ -2038,6 +2052,28 @@ function portal_poll_plea() {
 	global $g, $config, $_POST, $cpzone
 
 
+}
+
+
+# generate random request id for captive plea
+# make sure number doesn't exist in database (because we are paranoid)
+# return unique number for session id
+function generate_plea_id() {
+	$plea_id = mt_rand(0, 99999);
+
+	$DB = captiveplea_opendb();
+	if ($DB) {
+		$error_msg = '';
+		if ($result = @sqlite_query($DB, "SELECT COUNT(plea_id) as plea_count WHERE plea_id = '$plea_id'", $error_msg)) {
+			$count = $sqlite_fetch_array($result, SQLITE_ASSOC)['plea_count'];
+			if ($count > 0) {
+				/* plea_id is not unique, try again */
+				$plea_id = generate_plea_id();
+			}
+		}
+	}
+
+	return $plea_id
 }
 
 /*
