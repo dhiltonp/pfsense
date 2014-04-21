@@ -112,6 +112,16 @@ EOD;
 EOD;
 	}
 
+	if(isset($config['captiveplea'])) {
+		$htmltext .= <<<EOD
+									<tr>
+										<td align="right">Enter Plea: </td>
+										<td><input name="plea" type="text" style="border:1px dashed;" size="30"></td>
+									</tr>
+
+EOD;
+	}
+
 	$htmltext .= <<<EOD
 									<tr>
 										<td colspan="2"><center><input name="accept" type="submit" value="Continue"></center></td>
@@ -1013,7 +1023,7 @@ function captiveportal_allowedip_configure_entry($ipent, $ishostname = false) {
 	$cp_filterdns_conf = "";
 	$enBwup = 0;
 	if (!empty($ipent['bw_up']))
-		$enBwup = iintval($ipent['bw_up']);
+		$enBwup = intval($ipent['bw_up']);
 	else if (isset($config['captiveportal'][$cpzone]['bwdefaultup']))
 		$enBwup = $config['captiveportal'][$cpzone]['bwdefaultup'];
 	$enBwdown = 0;
@@ -2033,7 +2043,7 @@ function portal_transfer_passthrumac($clientmac, $mac)
 }
 
 function portal_send_plea() {
-	global $g, $config, $_POST, $cpzone
+	global $g, $config, $_POST, $cpzone;
 	require_once("notices.inc");  
 	$to = $config['captiveportal'][$cpzone]['captiveemail']; // TODO: verify this config element's keys
 
@@ -2049,7 +2059,7 @@ function portal_send_plea() {
 }
 
 function portal_poll_plea() {
-	global $g, $config, $_POST, $cpzone
+	global $g, $config, $_POST, $cpzone;
 
 
 }
