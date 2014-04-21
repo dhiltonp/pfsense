@@ -112,6 +112,16 @@ EOD;
 EOD;
 	}
 
+	if(isset($config['captiveplea'])) {
+		$htmltext .= <<<EOD
+									<tr>
+										<td align="right">Enter Plea: </td>
+										<td><input name="plea" type="text" style="border:1px dashed;" size="30"></td>
+									</tr>
+
+EOD;
+	}
+
 	$htmltext .= <<<EOD
 									<tr>
 										<td colspan="2"><center><input name="accept" type="submit" value="Continue"></center></td>
