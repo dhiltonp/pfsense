@@ -2020,11 +2020,23 @@ function portal_transfer_passthrumac($clientmac, $mac)
 
 function portal_send_plea() {
 	global $g, $config, $_POST, $cpzone
+	require_once("notices.inc");  
+	$to = $config['captiveportal'][$cpzone]['captiveemail']; // TODO: verify this config element's keys
 
+	/* make special from address containing a pseudo-session tracker using email 'sub-addressing' */
+	$from = $config['notifications']['smtp']['fromaddress'];
+	$recipient_delimiter = '+'; // TODO: delimter needs to be configurable so 
+	                            //       session tracker works with any SMTP/POP3 server
+	list ($user, $domain) = explode('@', $from, 2);
+	
+	$from_extended = $user . $recipient_delimiter . '@' . $domain;
+	$errormsg = send_smtp_message($message, $headers, $from_extended, $to);
+	return $errormsg;
 }
 
 function portal_poll_plea() {
 	global $g, $config, $_POST, $cpzone
+
 
 }
 
