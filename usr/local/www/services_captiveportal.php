@@ -95,6 +95,7 @@ if ($a_cp[$cpzone]) {
 	$pconfig['freelogins_resettimeout'] = $a_cp[$cpzone]['freelogins_resettimeout'];
 	$pconfig['freelogins_updatetimeouts'] = isset($a_cp[$cpzone]['freelogins_updatetimeouts']);
 	$pconfig['enable'] = isset($a_cp[$cpzone]['enable']);
+	$pconfig['captiveplea'] = isset($a_cp[$cpzone]['captiveplea']);
 	$pconfig['captiveemail'] = $a_cp[$cpzone]['captiveemail'];
 	$pconfig['pop3server'] = $a_cp[$cpzone]['pop3server'];
 	$pconfig['pop3port'] = $a_cp[$cpzone]['pop3port'];
@@ -272,7 +273,7 @@ if ($_POST) {
 			$newcp['enable'] = true;
 		else
 			unset($newcp['enable']);
-		$newcp['captiveplea'] = $_POST['captiveplea'];
+		$newcp['captiveplea'] = $_POST['captiveplea'] ? true : false;
 		$newcp['captiveemail'] = $_POST['captiveemail'];
 		$newcp['pop3server'] = $_POST['pop3server'];
 		$newcp['pop3port'] = $_POST['pop3port'];
