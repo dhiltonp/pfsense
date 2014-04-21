@@ -2042,19 +2042,26 @@ function portal_transfer_passthrumac($clientmac, $mac)
 	return false;
 }
 
-function portal_send_plea() {
+function portal_send_plea($user, $plea_msg) {
 	global $g, $config, $_POST, $cpzone;
 	require_once("notices.inc");  
+
 	$to = $config['captiveportal'][$cpzone]['captiveemail']; // TODO: verify this config element's keys
 
 	/* make special from address containing a pseudo-session tracker using email 'sub-addressing' */
 	$from = $config['notifications']['smtp']['fromaddress'];
-	$recipient_delimiter = '+'; // TODO: delimter needs to be configurable so 
+	list ($local_part, $domain_part) = explode('@', $from, 2);
+	$recipient_delimiter = '+'; // TODO: delimiter needs to be configurable so 
 	                            //       session tracker works with any SMTP/POP3 server
-	list ($user, $domain) = explode('@', $from, 2);
 	
-	$from_extended = $user . $recipient_delimiter . '@' . $domain;
-	$errormsg = send_smtp_message($message, $headers, $from_extended, $to);
+	$from_extended = $local_part . $recipient_delimiter . $plea_id . '@' . $domain;
+
+	$subject = "captive plea from $user";
+
+	// TODO: Decide if we need to restrict this to 140 characters, and how that
+	//		 works out between the subject and body in and SMS message
+	$errormsg = send_smtp_message($plea_msg, $subject, $from_extended, $to);
+
 	return $errormsg;
 }
 
