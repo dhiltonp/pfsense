@@ -2019,7 +2019,7 @@ function portal_transfer_passthrumac($clientmac, $mac)
 }
 
 function portal_send_plea() {
-	global $g, $config, $_POST, $cpzone
+	global $g, $config, $_POST, $cpzone;
 	require_once("notices.inc");  
 	$to = $config['captiveportal'][$cpzone]['captiveemail']; // TODO: verify this config element's keys
 
@@ -2035,7 +2035,7 @@ function portal_send_plea() {
 }
 
 function portal_poll_plea() {
-	global $g, $config, $_POST, $cpzone
+	global $g, $config, $_POST, $cpzone;
 
 
 }
