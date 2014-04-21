@@ -1770,9 +1770,6 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 	/* Do not allow concurrent login execution. */
 	$cpdblck = lock("captiveportaldb{$cpzone}", LOCK_EX);
 
-	if ($attributes['voucher'])
-		$remaining_time = $attributes['session_timeout'];
-
 	/* Find an existing session */
 	/* MAC passthrough reassign? */
 	if (   isset($config['captiveportal'][$cpzone]['noconcurrentlogins'])
@@ -1790,12 +1787,14 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 		}
 	}
 
-	/* Snapshot the timestamp */
-	$allow_time = time();
+	$radiusservers = captiveportal_get_radius_servers();
+	if (is_null($radiusctx))
+		$radiusctx = 'first';
 
-	list($radiusservers, $radiusctx, $sessionid, $remaining_time) = portal_check_concurrent_login($clientip, $clientmac, $username, $allow_time, $attributes, $radiusctx);
+	# $sessionid and $remaining_voucher_time may both come back as unset
+	list($sessionid, $remaining_voucher_time) = portal_transfer_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers);
 
-	if ($attributes['voucher'] && $remaining_time <= 0)
+	if ($attributes['voucher'] && $remaining_voucher_time <= 0)
 		return 0;       // voucher already used and no time left
 						// TODO: respond with message as above?
 
@@ -1862,7 +1861,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 				$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 2, $clientip, $clientsn, NULL, $bw_down_pipeno);
 
 			if ($attributes['voucher'])
-				$attributes['session_timeout'] = $remaining_time;
+				$attributes['session_timeout'] = $remaining_voucher_time;
 			
 			/* handle empty attributes */
 			$session_timeout = (!empty($attributes['session_timeout'])) ? $attributes['session_timeout'] : 'NULL';
@@ -1876,7 +1875,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			/* encode password in Base64 just in case it contains commas */
 			$bpassword = base64_encode($password);
 			$insertquery  = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, radiusctx) ";
-			$insertquery .= "VALUES ({$allow_time}, {$pipeno}, '{$clientip}', '{$clientmac}', '{$safe_username}', '{$sessionid}', '{$bpassword}', ";
+			$insertquery .= "VALUES ({$_SERVER['REQUEST_TIME']}, {$pipeno}, '{$clientip}', '{$clientmac}', '{$safe_username}', '{$sessionid}', '{$bpassword}', ";
 			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, '{$radiusctx}')";
 
 			/* store information to database */
@@ -1925,10 +1924,10 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
  * @param $clientmac
  * @param $username
  * @param $attributes
- * @param $radiusctx
- * @return array
+ * @param $radiusservers
+ * @return $sessionid, $remaining_voucher_time
  */
-function portal_check_concurrent_login($clientip, $clientmac, $username, $allow_time, $attributes, $radiusctx)
+function portal_transfer_concurrent_login($clientip, $clientmac, $username, $attributes, $radiusservers)
 {
 	global $config, $cpzone;
 
@@ -1939,10 +1938,9 @@ function portal_check_concurrent_login($clientip, $clientmac, $username, $allow_
 		$query .= " OR (username != 'unauthenticated' AND lower(username) = '{$tmpusername}')";
 	$cpdb = captiveportal_read_db($query);
 
-	$radiusservers = captiveportal_get_radius_servers();
 	$unsetindexes = array();
-	if (is_null($radiusctx))
-		$radiusctx = 'first';
+	if ($attributes['voucher'])
+		$remaining_voucher_time = $attributes['session_timeout'];
 
 	foreach ($cpdb as $cpentry) {
 		if (empty($cpentry[11])) {
@@ -1959,7 +1957,7 @@ function portal_check_concurrent_login($clientip, $clientmac, $username, $allow_
 		} elseif (($attributes['voucher']) && ($username != 'unauthenticated') && ($cpentry[4] == $username)) {
 			// user logged in with an active voucher. Check for how long and calculate
 			// how much time we can give him (voucher credit - used time)
-			$remaining_time = $cpentry[0] + $cpentry[7] - $allow_time;
+			$remaining_voucher_time = $cpentry[0] + $cpentry[7] - $_SERVER['REQUEST_TIME'];
 
 			/* This user was already logged in so we disconnect the old one */
 			captiveportal_disconnect($cpentry, $radiusservers[$cpentry[11]], 13);
@@ -1981,7 +1979,7 @@ function portal_check_concurrent_login($clientip, $clientmac, $username, $allow_
 
 	if (!empty($unsetindexes))
 		captiveportal_remove_entries($unsetindexes);
-	return array($radiusservers, $radiusctx, $sessionid, $remaining_time);
+	return array($sessionid, $remaining_voucher_time);
 }
 
 function portal_transfer_passthrumac($clientmac, $mac)
