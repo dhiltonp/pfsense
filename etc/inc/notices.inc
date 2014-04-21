@@ -289,7 +289,15 @@ function notify_via_smtp($message, $force = false) {
 	return;
 }
 
-function send_smtp_message($message, $subject = "(no subject)") {
+/****f* notices/send_smtp_message
+ * NAME
+ *   send_smtp_message
+ * INPUTS
+ *   $message body, subject (optional), $from (optional), $to (optional)
+ * RESULT
+ *   Returns an error if message was not sent
+ ******/
+function send_smtp_message($message, $subject = "(no subject)", $from = null, $to = null) {
 	global $config, $g;
 	require_once("sasl.inc");
 	require_once("smtp.inc");
@@ -302,8 +310,17 @@ function send_smtp_message($message, $subject = "(no subject)") {
 
 	$smtp = new smtp_class;
 
-	$from = "pfsense@{$config['system']['hostname']}.{$config['system']['domain']}";
-	$to = $config['notifications']['smtp']['notifyemailaddress'];
+	/* decide on from address, if not already defined */
+	if ($from === null) {
+		$from = "pfsense@{$config['system']['hostname']}.{$config['system']['domain']}";
+		if($config['notifications']['smtp']['fromaddress'])
+			$from = $config['notifications']['smtp']['fromaddress'];
+	}
+
+	/* decide on to address, if not already defined */
+	if ($to === null) {
+		$to = $config['notifications']['smtp']['notifyemailaddress'];
+	}
 
 	$smtp->host_name = $config['notifications']['smtp']['ipaddress'];
 	$smtp->host_port = empty($config['notifications']['smtp']['port']) ? 25 : $config['notifications']['smtp']['port'];
@@ -314,9 +331,6 @@ function send_smtp_message($message, $subject = "(no subject)") {
 	$smtp->debug = 0;
 	$smtp->html_debug = 0;
 	$smtp->localhost=$config['system']['hostname'].".".$config['system']['domain'];
-	
-	if($config['notifications']['smtp']['fromaddress'])
-		$from = $config['notifications']['smtp']['fromaddress'];
 	
 	// Use SMTP Auth if fields are filled out
 	if($config['notifications']['smtp']['username'] && 

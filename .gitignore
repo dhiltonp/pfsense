@@ -1,4 +1,15 @@
+# Ignore file browser image cache
 .DS_Store
+
+# Ignore notes directories
 _notes/
+
 # Ignore Vim swap files
 .*.swp
+.*.swo
+
+# Ignore ctags files
+tags
+
+
+
