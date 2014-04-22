@@ -1266,10 +1266,10 @@ function radius($username,$password,$clientip,$clientmac,$type, $radiusctx = nul
 function captiveportal_opendb() {
 	global $g, $cpzone;
 
-	if (file_exists("{$g['vardb_path']}/captiveportal{$cpzone}.db"))
+	if (file_exists("{$g['vardb_path']}/captiveportal{$cpzone}.db")) {
 		$DB = @sqlite_open("{$g['vardb_path']}/captiveportal{$cpzone}.db");
 		captiveplea_check_table($DB);
-	else {
+	} else {
 		$errormsg = "";
 		$DB = @sqlite_open("{$g['vardb_path']}/captiveportal{$cpzone}.db");
 		if (@sqlite_exec($DB, "CREATE TABLE captiveportal (allow_time INTEGER, pipeno INTEGER, ip TEXT, mac TEXT, username TEXT, sessionid TEXT, bpassword TEXT, session_timeout INTEGER, idle_timeout INTEGER, session_terminate_time INTEGER, interim_interval INTEGER, radiusctx TEXT) ", $errormsg)) {
