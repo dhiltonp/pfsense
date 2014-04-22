@@ -1268,7 +1268,6 @@ function captiveportal_opendb() {
 
 	if (file_exists("{$g['vardb_path']}/captiveportal{$cpzone}.db")) {
 		$DB = @sqlite_open("{$g['vardb_path']}/captiveportal{$cpzone}.db");
-		captiveplea_check_table($DB);
 	} else {
 		$errormsg = "";
 		$DB = @sqlite_open("{$g['vardb_path']}/captiveportal{$cpzone}.db");
@@ -1278,7 +1277,7 @@ function captiveportal_opendb() {
 			@sqlite_exec($DB, "CREATE INDEX ip ON captiveportal (ip)");
 			@sqlite_exec($DB, "CREATE INDEX starttime ON captiveportal (allow_time)");
 			@sqlite_exec($DB, "CREATE INDEX serviceid ON captiveportal (serviceid)");
-			captiveplea_check_table($DB);
+			captiveplea_create_table($DB);
 		} else
 			captiveportal_syslog("Error during table {$cpzone} creation. Error message: {$errormsg}");
 	}
@@ -1286,13 +1285,12 @@ function captiveportal_opendb() {
 	return $DB;
 }
 
-function captiveplea_check_table($DB) {
+function captiveplea_create_table($DB) {
 	global $g, $cpzone;
 
 	$errormsg = "";
-	if (@sqlite_exec($DB, "CREATE TABLE IF NOT EXISTS captiveplea (id INTEGER, username TEXT, sessionid TEXT, plea_id TEXT, expiretime TEXT) ", $errormsg)) {;
-		@sqlite_exec($DB, "CREATE UNIQUE INDEX IF NOT EXISTS plea_id on captiveplea (plea_id)");
-		@sqlite_exec($DB, "CREATE UNIQUE INDEX IF NOT EXISTS sessionid on captiveplea (sessionid)");
+	if (@sqlite_exec($DB, "CREATE TABLE captiveplea (plea_id TEXT, username TEXT, sessionid TEXT, expiretime TEXT) ", $errormsg)) {;
+		@sqlite_exec($DB, "CREATE UNIQUE INDEX plea_id on captiveplea (plea_id)");
 	} else 
 		captiveportal_syslog("Error during captive plea table creation for {$cpzone}.  Error message: {$errormsg}");
 	return;
@@ -2086,6 +2084,14 @@ function generate_plea_id() {
 	/* Do not allow concurrent login execution. */
 	#$cpdblck = lock("captiveportaldb{$cpzone}", LOCK_EX);
 
+	/* TODO: following code was early attempt at guaranteed unique plea_ids.
+	 *		 having problems with $count coming back null, either because we 
+	 *		 open the databae too many times in recursion, or some other 
+	 *		 problem with write access to the file (needed for even select
+	 *		 queries.  Temporarily simplifying to just return random plea_id
+	 *		 so we can move on to other issues, and come back to this when
+	 *		 there is time and/or a better solution.
+	 *
 	$DB = captiveportal_opendb();
 	if ($DB) {
 		while(true) {
@@ -2103,11 +2109,16 @@ function generate_plea_id() {
 
 			}
 		}
-	}
-
+	} 
+	 
 	#unlock($cpdblck);
 
 	return 0; // this code shouldn't be reached
+	 */
+
+	$plea_id = mt_rand(0, 99999);
+
+	return $plea_id
 }
 
 /*
