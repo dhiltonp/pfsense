@@ -2047,7 +2047,7 @@ function portal_send_plea($user, $plea_msg) {
 	global $g, $config, $_POST, $cpzone;
 	require_once("notices.inc");  
 
-	$to = $config['captiveportal'][$cpzone]['captiveemail']; // TODO: verify this config element's keys
+	$to = $config['captiveportal'][$cpzone]['captiveemail']; 
 
 	/* make special from address containing a pseudo-session tracker using email 'sub-addressing' */
 	$from = $config['notifications']['smtp']['fromaddress'];
@@ -2058,7 +2058,8 @@ function portal_send_plea($user, $plea_msg) {
 	$from_extended = $local_part . $recipient_delimiter . $plea_id . '@' . $domain;
 
 	$subject = "captive plea from $user";
-	$plea_msg .= " $plea_id";
+	/* Include plea_id in message body as well, for case when smtp provider strips the plussed address */
+	$plea_msg = "$plea_id $plea_msg";
 
 	// TODO: Decide if we need to restrict this to 140 characters, and how that
 	//		 works out between the subject and body in and SMS message
