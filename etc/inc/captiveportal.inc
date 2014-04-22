@@ -112,7 +112,7 @@ EOD;
 EOD;
 	}
 
-	if(isset($config['captiveplea_enable'])) {
+	if(isset($config['captiveportal'][$cpzone]['captiveplea_enable'])) {
 		$htmltext .= <<<EOD
 									<tr>
 										<td align="right">Enter Plea: </td>
