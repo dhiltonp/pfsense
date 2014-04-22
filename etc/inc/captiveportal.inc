@@ -2118,7 +2118,7 @@ function generate_plea_id() {
 
 	$plea_id = mt_rand(0, 99999);
 
-	return $plea_id
+	return $plea_id;
 }
 
 /*
