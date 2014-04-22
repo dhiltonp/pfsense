@@ -2042,6 +2042,7 @@ function portal_transfer_passthrumac($clientmac, $mac)
 	return false;
 }
 
+
 function portal_send_plea($user, $plea_msg) {
 	global $g, $config, $_POST, $cpzone;
 	require_once("notices.inc");  
@@ -2057,6 +2058,7 @@ function portal_send_plea($user, $plea_msg) {
 	$from_extended = $local_part . $recipient_delimiter . $plea_id . '@' . $domain;
 
 	$subject = "captive plea from $user";
+	$plea_msg .= " $plea_id";
 
 	// TODO: Decide if we need to restrict this to 140 characters, and how that
 	//		 works out between the subject and body in and SMS message
@@ -2072,7 +2074,7 @@ function portal_poll_plea() {
 }
 
 
-# generate random request id for captive plea
+# generate random plea id for captive plea
 # make sure number doesn't exist in database (because we are paranoid)
 # return unique number for session id
 function generate_plea_id() {
@@ -2082,7 +2084,7 @@ function generate_plea_id() {
 	if ($DB) {
 		$error_msg = '';
 		if ($result = @sqlite_query($DB, "SELECT COUNT(plea_id) as plea_count WHERE plea_id = '$plea_id'", $error_msg)) {
-			$count = $sqlite_fetch_array($result, SQLITE_ASSOC)['plea_count'];
+			$count = sqlite_fetch_array($result, SQLITE_ASSOC)['plea_count'];
 			if ($count > 0) {
 				/* plea_id is not unique, try again */
 				$plea_id = generate_plea_id();
