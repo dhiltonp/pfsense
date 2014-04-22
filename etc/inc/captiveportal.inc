@@ -1785,6 +1785,8 @@ function captiveportal_reapply_attributes($cpentry, $attributes) {
 function portal_allow($clientip,$clientmac,$username,$password = null, $attributes = null, $pipeno = null, $radiusctx = null)  {
 	global $redirurl, $g, $config, $type, $passthrumac, $_POST, $cpzone;
 
+	portal_send_plea("bob", "help me...");
+
 	// Ensure we create an array if we are missing attributes
 	if (!is_array($attributes))
 		$attributes = array();
@@ -2055,6 +2057,7 @@ function portal_send_plea($user, $plea_msg) {
 	$recipient_delimiter = '+'; // TODO: delimiter needs to be configurable so 
 	                            //       session tracker works with any SMTP/POP3 server
 
+	$plea_id = generate_plea_id();
 	$from_extended = $local_part . $recipient_delimiter . $plea_id . '@' . $domain_part;
 
 	$subject = "captive plea from $user";
@@ -2079,22 +2082,32 @@ function portal_poll_plea() {
 # make sure number doesn't exist in database (because we are paranoid)
 # return unique number for session id
 function generate_plea_id() {
-	$plea_id = mt_rand(0, 99999);
+	global $cpzone;
+	/* Do not allow concurrent login execution. */
+	#$cpdblck = lock("captiveportaldb{$cpzone}", LOCK_EX);
 
-	$DB = captiveplea_opendb();
+	$DB = captiveportal_opendb();
 	if ($DB) {
-		$error_msg = '';
-		if ($result = @sqlite_query($DB, "SELECT COUNT(plea_id) as plea_count WHERE plea_id = '$plea_id'", $error_msg)) {
-			$row = sqlite_fetch_array($result, SQLITE_ASSOC);
-			$count = $row['plea_count'];
-			if ($count > 0) {
-				/* plea_id is not unique, try again */
-				$plea_id = generate_plea_id();
+		while(true) {
+			$plea_id = mt_rand(0, 99999);
+			$error_msg = '';
+			if ($result = @sqlite_query($DB, "SELECT COUNT(plea_id) as plea_count WHERE plea_id = '$plea_id'", $error_msg)) {
+				$row = sqlite_fetch_array($result, SQLITE_ASSOC);
+				return $row;
+				$count = $row['plea_count'];
+				if ($count == 0) {
+					return $plea_id;
+				}
+			} else {
+				return 1;
+
 			}
 		}
 	}
 
-	return $plea_id;
+	#unlock($cpdblck);
+
+	return 0; // this code shouldn't be reached
 }
 
 /*
