@@ -96,11 +96,16 @@ function get_default_captive_portal_html() {
 								<table>
 									<tr><td colspan="2"><center>Welcome to the {$g['product_name']} Captive Portal!</td></tr>
 									<tr><td>&nbsp;</td></tr>
+EOD;
+
+	if($config['captiveportal'][$cpzone]['auth_method'] != "none") {
+		$htmltext .= <<<EOD
 									<tr><td align="right">Username:</td><td><input name="auth_user" type="text" style="border: 1px dashed;"></td></tr>
 									<tr><td align="right">Password:</td><td><input name="auth_pass" type="password" style="border: 1px dashed;"></td></tr>
 									<tr><td>&nbsp;</td></tr>
 
 EOD;
+	}
 
 	if(isset($config['voucher'][$cpzone]['enable'])) {
 	$htmltext .= <<<EOD
@@ -108,6 +113,8 @@ EOD;
 										<td align="right">Enter Voucher Code: </td>
 										<td><input name="auth_voucher" type="text" style="border:1px dashed;" size="22"></td>
 									</tr>
+									<tr><td>&nbsp;</td></tr>
+
 
 EOD;
 	}
@@ -118,6 +125,7 @@ EOD;
 										<td align="right">Enter Plea: </td>
 										<td><input name="plea" type="text" style="border:1px dashed;" size="30"></td>
 									</tr>
+									<tr><td>&nbsp;</td></tr>
 
 EOD;
 	}
