@@ -311,14 +311,14 @@ function send_smtp_message($message, $subject = "(no subject)", $from = null, $t
 	$smtp = new smtp_class;
 
 	/* decide on from address, if not already defined */
-	if ($from === null) {
+	if ($from == null) {
 		$from = "pfsense@{$config['system']['hostname']}.{$config['system']['domain']}";
 		if($config['notifications']['smtp']['fromaddress'])
 			$from = $config['notifications']['smtp']['fromaddress'];
 	}
 
 	/* decide on to address, if not already defined */
-	if ($to === null) {
+	if ($to == null) {
 		$to = $config['notifications']['smtp']['notifyemailaddress'];
 	}
 
