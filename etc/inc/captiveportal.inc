@@ -2047,15 +2047,15 @@ function portal_send_plea($user, $plea_msg) {
 	global $g, $config, $_POST, $cpzone;
 	require_once("notices.inc");  
 
-	$to = $config['captiveportal'][$cpzone]['captiveemail']; 
+	$to = $config['captiveportal'][$cpzone]['captiveemail'];
 
 	/* make special from address containing a pseudo-session tracker using email 'sub-addressing' */
 	$from = $config['notifications']['smtp']['fromaddress'];
 	list ($local_part, $domain_part) = explode('@', $from, 2);
 	$recipient_delimiter = '+'; // TODO: delimiter needs to be configurable so 
 	                            //       session tracker works with any SMTP/POP3 server
-	
-	$from_extended = $local_part . $recipient_delimiter . $plea_id . '@' . $domain;
+
+	$from_extended = $local_part . $recipient_delimiter . $plea_id . '@' . $domain_part;
 
 	$subject = "captive plea from $user";
 	/* Include plea_id in message body as well, for case when smtp provider strips the plussed address */
@@ -2085,7 +2085,8 @@ function generate_plea_id() {
 	if ($DB) {
 		$error_msg = '';
 		if ($result = @sqlite_query($DB, "SELECT COUNT(plea_id) as plea_count WHERE plea_id = '$plea_id'", $error_msg)) {
-			$count = sqlite_fetch_array($result, SQLITE_ASSOC)['plea_count'];
+			$row = sqlite_fetch_array($result, SQLITE_ASSOC);
+			$count = $row['plea_count'];
 			if ($count > 0) {
 				/* plea_id is not unique, try again */
 				$plea_id = generate_plea_id();
