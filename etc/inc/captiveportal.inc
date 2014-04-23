@@ -1283,7 +1283,7 @@ function captiveportal_opendb() {
 		$schema .= "bpassword TEXT, idle_timeout INTEGER, interim_interval INTEGER, radiusctx TEXT,";  // only used by radius
 		$schema .= "session_timeout INTEGER, session_terminate_time INTEGER,";  // only used by voucher
 		$schema .= "pending_plea_id TEXT, request_time INTEGER";  // only used by plea
-		if (@sqlite_exec($DB, "CREATE TABLE captiveportal {$schema}", $errormsg)) {
+		if (@sqlite_exec($DB, "CREATE TABLE captiveportal ({$schema})", $errormsg)) {
 			@sqlite_exec($DB, "CREATE UNIQUE INDEX idx_active ON captiveportal (sessionid, username)");
 			@sqlite_exec($DB, "CREATE INDEX user ON captiveportal (username)");
 			@sqlite_exec($DB, "CREATE INDEX ip ON captiveportal (ip)");
@@ -2060,9 +2060,11 @@ function portal_send_plea($user, $plea_msg) {
 	$plea_id = generate_plea_id();
 	$from_extended = $local_part . $recipient_delimiter . $plea_id . '@' . $domain_part;
 
-	$subject = "captive plea from $user";
+	$subject = "captive plea from $user, plea id $plea_id";
 	/* Include plea_id in message body as well, for case when smtp provider strips the plussed address */
-	$plea_msg = "$plea_id $plea_msg";
+	$plea_msg = "Plea ID $plea_id beseeched by $user with the plea of:\n"
+			  . "'$plea_msg'\n"
+			  . "Reply with '$plea_id {yes|no} [minutes]' to grant|deny access.";
 
 	// TODO: Decide if we need to restrict this to 140 characters, and how that
 	//		 works out between the subject and body in and SMS message
