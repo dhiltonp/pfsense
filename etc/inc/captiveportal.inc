@@ -2130,7 +2130,7 @@ function portal_poll_plea() {
 		// print "<br><br>";
 	imap_close($msg_store);
 
-	return ($m_plea_id, $m_answer, $m_timelimit);
+	return array($m_plea_id, $m_answer, $m_timelimit);
 }
 
 
