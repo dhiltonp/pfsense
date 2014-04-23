@@ -1279,32 +1279,22 @@ function captiveportal_opendb() {
 	} else {
 		$errormsg = "";
 		$DB = @sqlite_open("{$g['vardb_path']}/captiveportal{$cpzone}.db");
-		if (@sqlite_exec($DB, "CREATE TABLE captiveportal (allow_time INTEGER, pipeno INTEGER, ip TEXT, mac TEXT, username TEXT, sessionid TEXT,
-		                                                   bpassword TEXT, session_timeout INTEGER, idle_timeout INTEGER,
-		                                                   session_terminate_time INTEGER, interim_interval INTEGER, radiusctx TEXT,
-		                                                   pending_plea_id) ", $errormsg)) {
+		$schema =  "allow_time INTEGER, pipeno INTEGER, ip TEXT, mac TEXT, username TEXT, sessionid TEXT,";  // general-purpose
+		$schema .= "bpassword TEXT, idle_timeout INTEGER, interim_interval INTEGER, radiusctx TEXT,";  // only used by radius
+		$schema .= "session_timeout INTEGER, session_terminate_time INTEGER,";  // only used by voucher
+		$schema .= "pending_plea_id TEXT, request_time INTEGER";  // only used by plea
+		if (@sqlite_exec($DB, "CREATE TABLE captiveportal {$schema}", $errormsg)) {
 			@sqlite_exec($DB, "CREATE UNIQUE INDEX idx_active ON captiveportal (sessionid, username)");
 			@sqlite_exec($DB, "CREATE INDEX user ON captiveportal (username)");
 			@sqlite_exec($DB, "CREATE INDEX ip ON captiveportal (ip)");
 			@sqlite_exec($DB, "CREATE INDEX starttime ON captiveportal (allow_time)");
 			@sqlite_exec($DB, "CREATE INDEX serviceid ON captiveportal (serviceid)");
-			captiveplea_create_table($DB);
+			@sqlite_exec($DB, "CREATE UNIQUE INDEX pending_plea_id ON captiveplea (pending_plea_id)");
 		} else
 			captiveportal_syslog("Error during table {$cpzone} creation. Error message: {$errormsg}");
 	}
 
 	return $DB;
-}
-
-function captiveplea_create_table($DB) {
-	global $g, $cpzone;
-
-	$errormsg = "";
-	if (@sqlite_exec($DB, "CREATE TABLE captiveplea (plea_id TEXT, username TEXT, sessionid TEXT, expiretime TEXT) ", $errormsg)) {;
-		@sqlite_exec($DB, "CREATE UNIQUE INDEX plea_id on captiveplea (plea_id)");
-	} else 
-		captiveportal_syslog("Error during captive plea table creation for {$cpzone}.  Error message: {$errormsg}");
-	return;
 }
 
 /* read captive portal DB into array */
@@ -1903,15 +1893,16 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			$idle_timeout = (!empty($attributes['idle_timeout'])) ? $attributes['idle_timeout'] : 'NULL';
 			$session_terminate_time = (!empty($attributes['session_terminate_time'])) ? $attributes['session_terminate_time'] : 'NULL';
 			$interim_interval = (!empty($attributes['interim_interval'])) ? $attributes['interim_interval'] : 'NULL';
+			$plea_id = isset($config['captiveportal'][$cpzone]['captiveplea_enable']) ? generate_plea_id() : 'NULL';
 
 			/* escape username */
 			$safe_username = sqlite_escape_string($username);
 
 			/* encode password in Base64 just in case it contains commas */
 			$bpassword = base64_encode($password);
-			$insertquery  = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, radiusctx) ";
+			$insertquery  = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, radiusctx, pending_plea_id) ";
 			$insertquery .= "VALUES ({$_SERVER['REQUEST_TIME']}, {$pipeno}, '{$clientip}', '{$clientmac}', '{$safe_username}', '{$sessionid}', '{$bpassword}', ";
-			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, '{$radiusctx}')";
+			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, '{$radiusctx}', '{$plea_id}')";
 
 			/* store information to database */
 			captiveportal_write_db($insertquery);
@@ -2135,7 +2126,7 @@ function portal_poll_plea($plea_id) {
 	}
 	imap_close($msg_store);
 
-	return ($m_plea_id, $m_answer, $m_timelimit);
+	return array($m_plea_id, $m_answer, $m_timelimit);
 }
 
 
