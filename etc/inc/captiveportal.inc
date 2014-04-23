@@ -2088,7 +2088,7 @@ function portal_poll_plea($plea_id) {
 	$port     = $config['captiveportal'][$cpzone]['pop3port'];
 	$username = $config['captiveportal'][$cpzone]['pop3user'];
 	$password = $config['captiveportal'][$cpzone]['pop3password'];
-	$server_string = "{$server:$port/pop3/ssl/novalidate-cert}";  
+	$server_string = '{\$server:$port/pop3/ssl/novalidate-cert}';  
 
 	$msg_store = imap_open($server_string, $username, $password);
 
