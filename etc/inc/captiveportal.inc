@@ -2080,63 +2080,59 @@ function portal_send_plea($user, $plea_msg) {
 	return $errormsg;
 }
 
-function portal_poll_plea() {
+/*****f* portal_poll_plea($plea_id)
+ * NAME
+ *	 portal_poll_plea($plea_id)
+ * INPUTS
+ *	 $plea_id : The plea id to search messages for
+ * RESULTS
+ *   $m_plea_id : The found plea identifier (should be same as input)
+ *   $m_answer  : The response, either yes or no
+ *   $m_timelimit : An optional timelimit to allow or deny access for
+ *******/
+function portal_poll_plea($plea_id) {
 	global $g, $config, $_POST, $cpzone;
 
-	// print "Staring portal_poll()...<br><br>";
-
-	// print "Message store:<br>";
 	$server   = $config['captiveportal'][$cpzone]['pop3server'];
 	$port     = $config['captiveportal'][$cpzone]['pop3port'];
 	$username = $config['captiveportal'][$cpzone]['pop3user'];
 	$password = $config['captiveportal'][$cpzone]['pop3password'];
-	$server_string = "{" . $server . ":" . $port . "/pop3/ssl/novalidate-cert}";
-	// print $server_string;
+	$server_string = "{$server:$port/pop3/ssl/novalidate-cert}";  
+
 	$msg_store = imap_open($server_string, $username, $password);
-	// print "$msg_store<br><br>";
 
-	// print "Message list:<br>";
-	// $msg_list = imap_headers($msg_store);
-	// print_r($msg_list);
-	// print "<br><br>";
+	// $re_plea_id   = "($plea_id)";		   // Only care about a particular plea_id
+	// $re_plea_id   = "([0-9]{1,5})";		   // If we end up processing all pleas with whichever client
+	$re_answer    = "(y(?:es)?|n(?:o)?)";  // Phone may complete the word
+	$re_timelimit = "([0-9]+)?";		   // Optional, may not exist.
+	$regex        = "/^[^0-9]* *" . $re_plea_id . "\s+" . $re_answer . "\s+" . $re_timelimit . ".*$/im";  
 
-	// print "Message header:<br>";
-	// $last = imap_num_msg($msg_store);
-	// $headers = imap_headerinfo($msg_store, $last);
-	// print_r($headers);
-	// print "<br><br>";
-
-	// print "Message body:<br>";
-	// $body = imap_body($msg_store, $last);
-	// print "$body<br><br>";
-
-	// print "Closing connection...";
 	$m_plea_id   = "";
 	$m_answer    = "";
 	$m_timelimit = "";
-	$pleas = imap_search($msg_store, "FROM 8014003942@vtext.com"); // TODO Variables
-		foreach ($pleas as $msg_id => $plea_index) {
-			// print "Message number: $plea_index<br>";
-			$body = imap_body($msg_store, $plea_index);
-			// print "$body<br>";
-			$plea_id = 99999; //TODO:  Should come in function parameter list 
-			$re_plea_id = "($plea_id)";  // Only care about a particular plea_id
-			$re_answer = "(y(?:es)?|n(?:o)?)";  // Phone may complete the word
-			$re_timelimit = "([0-9]+)";
-			$regex = "/^[^0-9]* *" . $re_plea_id . "\s+" . $re_answer . "\s+" . $re_timelimit . ".*$/im";  
+	$responder_address = $config['captiveportal'][$cpzone]['captiveemail'];
+	$pleas = imap_search($msg_store, "FROM $responder_address"); 
+	foreach ($pleas as $msg_id => $plea_index) {
+		$body = imap_body($msg_store, $plea_index);
 
-			$matches = array();
-			$success = preg_match($regex, $body, $matches);
-			if ($success == 1) {
-				list ($m_full, $m_plea_id, $m_answer, $m_timelimit) = $matches;
-				// print "Found plea_id = $m_plea_id,   answer = $m_answer,   timelimit = $m_timelimit";
-				// TODO: Verify date, delete matched plea from mailmox
-				break;  // No longer need to continue searching
-						// TODO: or should we continue and get the last message?
-			}
-			// print "<br><br>";
+		$matches = array();
+		$success = preg_match($regex, $body, $matches);
+		if ($success == 1) {
+			list ($m_full, $m_plea_id, $m_answer, $m_timelimit) = $matches;
+			break;
+			/* TODO: Should we do insert query here to process any plea that is found? or call something else?
+			$insertquery = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, "
+						 . "			session_timeout, idle_timeout, sessionid_terminate_time, interim_interval, "
+						 . "			radiusctx) "
+						 . "VALUES ({$_SERVER['REQUEST_TIME']}, {$pipeno}, '{$clientip}', 
+						
+
+
+			@sqlite_exec($insertquery
+			 */
+			// TODO: should we be deleting the found response here?  Or just let the user clean them up with a mail client?
 		}
-		// print "<br><br>";
+	}
 	imap_close($msg_store);
 
 	return ($m_plea_id, $m_answer, $m_timelimit);
