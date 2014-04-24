@@ -1784,8 +1784,6 @@ function captiveportal_reapply_attributes($cpentry, $attributes) {
 function portal_allow($clientip,$clientmac,$username,$password = null, $attributes = null, $pipeno = null, $radiusctx = null)  {
 	global $redirurl, $g, $config, $type, $passthrumac, $_POST, $cpzone;
 
-	portal_send_plea("bob", "help me...");
-
 	// Ensure we create an array if we are missing attributes
 	if (!is_array($attributes))
 		$attributes = array();
@@ -1863,9 +1861,6 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 				return;
 			}
 
-			if(!isset($config['captiveportal'][$cpzone]['captiveplea_enable']))
-				portal_give_ip_access($clientip, $clientmac, $pipeno, $attributes);
-
 			if ($attributes['voucher'])
 				$attributes['session_timeout'] = $remaining_voucher_time;
 			
@@ -1874,10 +1869,18 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 			$idle_timeout = (!empty($attributes['idle_timeout'])) ? $attributes['idle_timeout'] : 'NULL';
 			$session_terminate_time = (!empty($attributes['session_terminate_time'])) ? $attributes['session_terminate_time'] : 'NULL';
 			$interim_interval = (!empty($attributes['interim_interval'])) ? $attributes['interim_interval'] : 'NULL';
-			$plea_id = isset($config['captiveportal'][$cpzone]['captiveplea_enable']) ? generate_plea_id() : 'NULL';
+			$plea_id = 'NULL';
 
 			/* escape username */
 			$safe_username = sqlite_escape_string($username);
+
+			// actually give access
+			if(!isset($config['captiveportal'][$cpzone]['captiveplea_enable'])) {
+				portal_give_ip_access($clientip, $clientmac, $pipeno, $attributes);
+			} else {
+				// TODO: only send plea if a plea isn't pending, they haven't been denied etc.
+				$plea_id = portal_send_plea($safe_username, $_POST['plea']);
+			}
 
 			/* encode password in Base64 just in case it contains commas */
 			$bpassword = base64_encode($password);
@@ -1932,7 +1935,7 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
  * @param $pipeno
  * @param $attributes
  */
-function portal_give_ip_access($clientip, $clientmac, $pipeno, $attributes)
+function portal_give_ip_access($clientip, $clientmac, $pipeno, $attributes = null)
 {
 	global $config, $cpzone;
 	$dwfaultbw_up = isset($config['captiveportal'][$cpzone]['bwdefaultup']) ? $config['captiveportal'][$cpzone]['bwdefaultup'] : 0;
@@ -2084,20 +2087,16 @@ function portal_send_plea($user, $plea_msg) {
 	//		 works out between the subject and body in and SMS message
 	$errormsg = send_smtp_message($plea_msg, $subject, $from_extended, $to);
 
-	return $errormsg;
+	return $plea_id;
 }
 
-/*****f* portal_poll_plea($plea_id)
+/*****f* portal_poll_plea()
  * NAME
- *	 portal_poll_plea($plea_id)
- * INPUTS
- *	 $plea_id : The plea id to search messages for
- * RESULTS
- *   $m_plea_id : The found plea identifier (should be same as input)
- *   $m_answer  : The response, either yes or no
- *   $m_timelimit : An optional timelimit to allow or deny access for
+ *	 portal_poll_plea()
+ * ACTIONS
+ *   polls the configured imap account for any responses, granting/denying access as needed
  *******/
-function portal_poll_plea($plea_id) {
+function portal_poll_plea($sessionid) {
 	global $g, $config, $_POST, $cpzone;
 
 	$server   = $config['captiveportal'][$cpzone]['pop3server'];
@@ -2118,31 +2117,46 @@ function portal_poll_plea($plea_id) {
 	$m_answer    = "";
 	$m_timelimit = "";
 	$responder_address = $config['captiveportal'][$cpzone]['captiveemail'];
-	$pleas = imap_search($msg_store, "FROM $responder_address"); 
+	$pleas = imap_search($msg_store, "FROM $responder_address");
+	// TODO: make this work with multiple zones
+	$cpdblck = lock("captiveportaldb{$cpzone}", LOCK_EX);
 	foreach ($pleas as $msg_id => $plea_index) {
 		$body = imap_body($msg_store, $plea_index);
-
 		$matches = array();
 		$success = preg_match($regex, $body, $matches);
 		if ($success == 1) {
 			list ($m_full, $m_plea_id, $m_answer, $m_timelimit) = $matches;
-			break;
-			/* TODO: Should we do insert query here to process any plea that is found? or call something else?
-			$insertquery = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, "
-						 . "			session_timeout, idle_timeout, sessionid_terminate_time, interim_interval, "
-						 . "			radiusctx) "
-						 . "VALUES ({$_SERVER['REQUEST_TIME']}, {$pipeno}, '{$clientip}', 
-						
-
-
-			@sqlite_exec($insertquery
-			 */
+			$pending_entries = captiveportal_read_db("WHERE pending_plea_id = '{$m_plea_id}'");
+			if(!empty($pending_entries)) {
+				foreach ($pending_entries as $pending_entry) { // should only be one result
+					// complete connection, update db
+					if($m_answer == "yes") {
+						portal_give_ip_access($pending_entry['ip'], $pending_entry['mac'], $pending_entry['pipeno']);
+						// TODO: set expiration time
+						captiveportal_write_db("UPDATE captiveportal SET pending_plea_id='NULL' WHERE pending_plea_id={$$m_plea_id}");
+					} elseif ($m_answer == "no") {
+						// TODO: set no time
+						// captiveportal_write_db("UPDATE captiveportal SET pending_plea_id='NULL' WHERE pending_plea_id={$$m_plea_id}");
+					}
+				}
+			} else {
+				// easy, not the best
+				portal_send_plea($m_plea_id, "Pending plea not found in database.");
+			}
 			// TODO: should we be deleting the found response here?  Or just let the user clean them up with a mail client?
 		}
 	}
+	unlock($cpdblck);
 	imap_close($msg_store);
+}
 
-	return array($m_plea_id, $m_answer, $m_timelimit);
+function portal_has_access($sessionid) {
+	global $cpzone;
+	$cpdblck = lock("captiveportaldb{$cpzone}", LOCK_EX);
+	//simplistic check, could be expanded?
+	$session_connected = captiveportal_read_db("WHERE pending_plea_id = 'NULL' AND sessionid = '{$sessionid}'");
+	unlock($cpdblck);
+	return !empty($session_connected);
 }
 
 
@@ -2235,7 +2249,6 @@ function portal_consume_passthrough_credit($clientmac) {
 						$usedmacs[] = implode(",", $usedmac);
 						captiveportal_write_usedmacs_db($usedmacs);
 					}
-
 					return false;
 				} else {
 					$usedmac[2] -= 1;
