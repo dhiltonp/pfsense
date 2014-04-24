@@ -278,11 +278,11 @@ function voucher_expire($voucher_received) {
 				$cpentry = captiveportal_read_db("WHERE username = '{$voucher}'");
 				if (!empty($cpentry)) {
 					captiveportal_disconnect($cpentry,null,13);
-					captiveportal_logportalauth($cpentry[4],$cpentry[3],$cpentry[2],"FORCLY TERMINATING VOUCHER {$voucher} SESSION");
-					$unsetindexes[] = $cpentry[5];
+					captiveportal_logportalauth($cpentry['username'],$cpentry['mac'],$cpentry['ip'],"FORCIBLY TERMINATING VOUCHER {$voucher} SESSION");
+					$unsetindexes[] = $cpentry['sessionid'];
 				}
 			} else
-				captiveportal_syslog("$voucher ($roll/$nr): not found on any registererd Roll");
+				captiveportal_syslog("$voucher ($roll/$nr): not found on any registered Roll");
 		} else
 			// hmm, thats weird ... not what I expected
 			captiveportal_syslog("$voucher invalid: $result !!");

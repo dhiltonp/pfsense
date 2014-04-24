@@ -52,8 +52,8 @@ if (($_GET['act'] == "del") && (!empty($_GET['zone']))) {
 flush();
 
 function clientcmp($a, $b) {
-	global $order;
-	return strcmp($a[$order], $b[$order]);
+	global $_GET;
+	return strcmp($a[$_GET['order']], $b[$_GET['order']]);
 }
 
 if (!is_array($config['captiveportal']))
@@ -65,50 +65,48 @@ $cpdb_all = array();
 foreach ($a_cp as $cpzone => $cp) {
 	$cpdb = captiveportal_read_db();
 	foreach ($cpdb as $cpent) {
-		$cpent[10] = $cpzone;
+		$cpent['cpzone'] = $cpzone;
 		if ($_GET['showact'])
-			$cpent[11] = captiveportal_get_last_activity($cpent[2]);
+			$cpent['last_activity'] = captiveportal_get_last_activity($cpent['ip']);
 		$cpdb_all[] = $cpent;
 	}
 }
 
+$fields = array(
+	"ip" => gettext("IP address"),
+	"mac" => gettext("MAC address"),
+	"username" => gettext("Username"),
+);
+
+if ($_GET['showact']) { // only show these two fields if show_activity is requested
+	$fields["allow_time"] = gettext("Session start");
+	$fields["last_activity"] = gettext("Last activity");
+}
+
 if ($_GET['order']) {
-	if ($_GET['order'] == "ip")
-		$order = 2;
-	else if ($_GET['order'] == "mac")
-		$order = 3;
-	else if ($_GET['order'] == "user")
-               	$order = 4;
-	else if ($_GET['order'] == "lastact")
-		$order = 5;
-	else if ($_GET['order'] == "zone")
-		$order = 10;
-	else
-		$order = 0;
+	if (!isset($fields[$_GET['order']]))
+		$_GET['order'] = "ip_address"; // default ordering, if invalid ordering key is specified
 	usort($cpdb_all, "clientcmp");
 }
+
 ?>
 <table class="sortable" name="sortabletable" id="sortabletable" width="100%" border="0" cellpadding="0" cellspacing="0" summary="captive portal status">
   <tr>
-    <td class="listhdrr"><a href="?order=ip&amp;showact=<?=$_GET['showact'];?>">IP address</a></td>
-    <td class="listhdrr"><a href="?order=mac&amp;showact=<?=$_GET['showact'];?>">MAC address</a></td>
-    <td class="listhdrr"><a href="?order=user&amp;showact=<?=$_GET['showact'];?>"><?=gettext("Username");?></a></td>
-	<?php if ($_GET['showact']): ?>
-    <td class="listhdrr"><a href="?order=start&amp;showact=<?=$_GET['showact'];?>"><?=gettext("Session start");?></a></td>
-    <td class="listhdrr"><a href="?order=start&amp;showact=<?=$_GET['showact'];?>"><?=gettext("Last activity");?></a></td>
-	<?php endif; ?>
+<?php foreach ($fields as $key => $text): ?>
+    <td class="listhdrr"><a href="?order=<?=$key?>&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=$text?></a></td>
+<?php endforeach; ?>
   </tr>
 <?php foreach ($cpdb_all as $cpent): ?>
   <tr>
-    <td class="listlr"><?=$cpent[2];?></td>
-    <td class="listr"><?=$cpent[3];?>&nbsp;</td>
-    <td class="listr"><?=$cpent[4];?>&nbsp;</td>
+    <td class="listlr"><?=$cpent['ip'];?></td>
+    <td class="listr"><?=$cpent['mac'];?>&nbsp;</td>
+    <td class="listr"><?=$cpent['username'];?>&nbsp;</td>
 	<?php if ($_GET['showact']): ?>
-    <td class="listr"><?=htmlspecialchars(date("m/d/Y H:i:s", $cpent[0]));?></td>
-    <td class="listr"><?php if ($cpent[11] && ($cpent[11] > 0)) echo htmlspecialchars(date("m/d/Y H:i:s", $cpent[11]));?></td>
+    <td class="listr"><?=htmlspecialchars(date("m/d/Y H:i:s", $cpent['allow_time']));?></td>
+    <td class="listr"><?php if ($cpent['last_activity'] && ($cpent['last_activity'] > 0)) echo htmlspecialchars(date("m/d/Y H:i:s", $cpent['last_activity']));?></td>
 	<?php endif; ?>
 	<td valign="middle" class="list nowrap">
-	<a href="?order=<?=$_GET['order'];?>&amp;showact=<?=$_GET['showact'];?>&amp;act=del&amp;zone=<?=$cpent[10];?>&amp;id=<?=$cpent[5];?>" onclick="return confirm('Do you really want to disconnect this client?')"><img src="./themes/<?= $g['theme']; ?>/images/icons/icon_x.gif" width="17" height="17" border="0" alt="x" /></a></td>
+	<a href="?order=<?=$_GET['order'];?>&amp;showact=<?=$_GET['showact'];?>&amp;act=del&amp;zone=<?=$cpent['cpzone'];?>&amp;id=<?=$cpent['sessionid'];?>" onclick="return confirm('Do you really want to disconnect this client?')"><img src="./themes/<?= $g['theme']; ?>/images/icons/icon_x.gif" width="17" height="17" border="0" alt="x" /></a></td>
   </tr>
 <?php endforeach; ?>
 </table>

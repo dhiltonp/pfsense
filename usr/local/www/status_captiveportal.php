@@ -73,25 +73,28 @@ include("head.inc");
 flush();
 
 function clientcmp($a, $b) {
-	global $order;
-	return strcmp($a[$order], $b[$order]);
+	global $_GET;
+	return strcmp($a[$_GET['order']], $b[$_GET['order']]);
+}
+
+$fields = array(
+	"ip" => gettext("IP address"),
+	"mac" => gettext("MAC address"),
+	"username" => gettext("Username"),
+	"allow_time" => gettext("Session start");
+);
+
+if ($_GET['showact']) { // only show this field if show_activity is requested
+	$fields["last_activity"] = gettext("Last activity");
 }
 
 if (!empty($cpzone)) {
 	$cpdb = captiveportal_read_db();
 
 	if ($_GET['order']) {
-		if ($_GET['order'] == "ip")
-			$order = 2;
-		else if ($_GET['order'] == "mac")
-			$order = 3;
-		else if ($_GET['order'] == "user")
-			$order = 4;
-		else if ($_GET['order'] == "lastact")
-			$order = 5;
-		else
-			$order = 0;
-		usort($cpdb, "clientcmp");
+		if (!isset($fields[$_GET['order']]))
+			$_GET['order'] = "ip_address"; // default ordering, if invalid ordering key is specified
+		usort($cpdb_all, "clientcmp");
 	}
 }
 
@@ -145,23 +148,17 @@ $mac_man = load_mac_manufacturer_table();
 	<td colspan="5" valign="top" class="listtopic"><?=gettext("Captiveportal status");?></td>
   </tr>
   <tr>
-    <td class="listhdrr"><a href="?zone=<?=$cpzone?>&amp;order=ip&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=gettext("IP address");?></a></td>
-    <td class="listhdrr"><a href="?zone=<?=$cpzone?>&amp;order=mac&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=gettext("MAC address");?></a></td>
-    <td class="listhdrr"><a href="?zone=<?=$cpzone?>&amp;order=user&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=gettext("Username");?></a></td>
-	<?php if ($_GET['showact']): ?>
-    <td class="listhdrr"><a href="?zone=<?=$cpzone?>&amp;order=start&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=gettext("Session start");?></a></td>
-    <td class="listhdr"><a href="?zone=<?=$cpzone?>&amp;order=lastact&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=gettext("Last activity");?></a></td>
-	<?php else: ?>
-    <td class="listhdr"><a href="?zone=<?=$cpzone?>&amp;order=start&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=gettext("Session start");?></a></td>
-	<?php endif; ?>
+  <?php foreach ($fields as $key => $text): ?>
+	<td class="listhdrr"><a href="?zone=<?=$cpzone?>&amp;order=<?=$key?>&amp;showact=<?=htmlspecialchars($_GET['showact']);?>"><?=$text?></a></td>
+  <?php endforeach; ?>
     <td class="list sort_ignore"></td>
   </tr>
 <?php foreach ($cpdb as $cpent): ?>
   <tr>
-    <td class="listlr"><?=$cpent[2];?></td>
+    <td class="listlr"><?=$cpent['ip'];?></td>
 	<td class="listr">
 		<?php
-		$mac=trim($cpent[3]);
+		$mac=trim($cpent['mac']);
 		if (!empty($mac)) {
 			$mac_hi = strtoupper($mac[0] . $mac[1] . $mac[3] . $mac[4] . $mac[6] . $mac[7]);
 			print htmlentities($mac);
@@ -169,14 +166,14 @@ $mac_man = load_mac_manufacturer_table();
 		}
 		?>&nbsp;
 	</td>
-    <td class="listr"><?=$cpent[4];?>&nbsp;</td>
-    <td class="listr"><?=htmlspecialchars(date("m/d/Y H:i:s", $cpent[0]));?></td>
+    <td class="listr"><?=$cpent['username'];?>&nbsp;</td>
+    <td class="listr"><?=htmlspecialchars(date("m/d/Y H:i:s", $cpent['allow_time']));?></td>
 	<?php if ($_GET['showact']):
-	$last_act = captiveportal_get_last_activity($cpent[2]); ?>
+	$last_act = captiveportal_get_last_activity($cpent['ip']); ?>
     <td class="listr"><?php if ($last_act != 0) echo htmlspecialchars(date("m/d/Y H:i:s", $last_act));?></td>
 	<?php endif; ?>
 	<td valign="middle" class="list" nowrap>
-	<a href="?zone=<?=$cpzone;?>&order=<?=$_GET['order'];?>&showact=<?=htmlspecialchars($_GET['showact']);?>&act=del&id=<?=$cpent[5];?>" onclick="return confirm('<?=gettext("Do you really want to disconnect this client?");?>')"><img src="./themes/<?= $g['theme']; ?>/images/icons/icon_x.gif" width="17" height="17" border="0" title="<?=gettext("Disconnect");?>"></a></td>
+	<a href="?zone=<?=$cpzone;?>&order=<?=$_GET['order'];?>&showact=<?=htmlspecialchars($_GET['showact']);?>&act=del&id=<?=$cpent['sessionid'];?>" onclick="return confirm('<?=gettext("Do you really want to disconnect this client?");?>')"><img src="./themes/<?= $g['theme']; ?>/images/icons/icon_x.gif" width="17" height="17" border="0" title="<?=gettext("Disconnect");?>"></a></td>
   </tr>
 <?php endforeach; endif; ?>
 </table>

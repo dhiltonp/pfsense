@@ -1900,9 +1900,9 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 
 			/* encode password in Base64 just in case it contains commas */
 			$bpassword = base64_encode($password);
-			$insertquery  = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, radiusctx, pending_plea_id) ";
+			$insertquery  = "INSERT INTO captiveportal (allow_time, pipeno, ip, mac, username, sessionid, bpassword, session_timeout, idle_timeout, session_terminate_time, interim_interval, radiusctx, pending_plea_id, request_time) ";
 			$insertquery .= "VALUES ({$_SERVER['REQUEST_TIME']}, {$pipeno}, '{$clientip}', '{$clientmac}', '{$safe_username}', '{$sessionid}', '{$bpassword}', ";
-			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, '{$radiusctx}', '{$plea_id}')";
+			$insertquery .= "{$session_timeout}, {$idle_timeout}, {$session_terminate_time}, {$interim_interval}, '{$radiusctx}', {$plea_id}, {$_SERVER['REQUEST_TIME']}')";
 
 			/* store information to database */
 			captiveportal_write_db($insertquery);
