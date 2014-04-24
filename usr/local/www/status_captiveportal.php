@@ -81,7 +81,7 @@ $fields = array(
 	"ip" => gettext("IP address"),
 	"mac" => gettext("MAC address"),
 	"username" => gettext("Username"),
-	"allow_time" => gettext("Session start");
+	"allow_time" => gettext("Session start"),
 );
 
 if ($_GET['showact']) { // only show this field if show_activity is requested
