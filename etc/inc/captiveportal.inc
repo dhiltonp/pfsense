@@ -1863,27 +1863,8 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 				return;
 			}
 
-			$dwfaultbw_up = isset($config['captiveportal'][$cpzone]['bwdefaultup']) ? $config['captiveportal'][$cpzone]['bwdefaultup'] : 0;
-			$dwfaultbw_down = isset($config['captiveportal'][$cpzone]['bwdefaultdn']) ? $config['captiveportal'][$cpzone]['bwdefaultdn'] : 0;
-			$bw_up = isset($attributes['bw_up']) ? round(intval($attributes['bw_up'])/1000, 2) : $dwfaultbw_up;
-			$bw_down = isset($attributes['bw_down']) ? round(intval($attributes['bw_down'])/1000, 2) : $dwfaultbw_down;
-
-			$bw_up_pipeno = $pipeno;
-			$bw_down_pipeno = $pipeno + 1;
-			//$bw_up /= 1000; // Scale to Kbit/s
-			$_gb = @pfSense_pipe_action("pipe {$bw_up_pipeno} config bw {$bw_up}Kbit/s queue 100 buckets 16");
-			$_gb = @pfSense_pipe_action("pipe {$bw_down_pipeno} config bw {$bw_down}Kbit/s queue 100 buckets 16");
-
-			$clientsn = (is_ipaddrv6($clientip)) ? 128 : 32;
-			if (!isset($config['captiveportal'][$cpzone]['nomacfilter']))
-				$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 1, $clientip, $clientsn, $clientmac, $bw_up_pipeno);
-			else
-				$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 1, $clientip, $clientsn, NULL, $bw_up_pipeno);
-
-			if (!isset($config['captiveportal'][$cpzone]['nomacfilter']))
-				$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 2, $clientip, $clientsn, $clientmac, $bw_down_pipeno);
-			else
-				$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 2, $clientip, $clientsn, NULL, $bw_down_pipeno);
+			if(!isset($config['captiveportal'][$cpzone]['captiveplea_enable']))
+				portal_give_ip_access($clientip, $clientmac, $pipeno, $attributes);
 
 			if ($attributes['voucher'])
 				$attributes['session_timeout'] = $remaining_voucher_time;
@@ -1943,6 +1924,39 @@ function portal_allow($clientip,$clientmac,$username,$password = null, $attribut
 	}
 
 	return $sessionid;
+}
+
+/**
+ * @param $clientip
+ * @param $clientmac
+ * @param $pipeno
+ * @param $attributes
+ */
+function portal_give_ip_access($clientip, $clientmac, $pipeno, $attributes)
+{
+	global $config, $cpzone;
+	$dwfaultbw_up = isset($config['captiveportal'][$cpzone]['bwdefaultup']) ? $config['captiveportal'][$cpzone]['bwdefaultup'] : 0;
+	$dwfaultbw_down = isset($config['captiveportal'][$cpzone]['bwdefaultdn']) ? $config['captiveportal'][$cpzone]['bwdefaultdn'] : 0;
+	$bw_up = isset($attributes['bw_up']) ? round(intval($attributes['bw_up']) / 1000, 2) : $dwfaultbw_up;
+	$bw_down = isset($attributes['bw_down']) ? round(intval($attributes['bw_down']) / 1000, 2) : $dwfaultbw_down;
+
+	$bw_up_pipeno = $pipeno;
+	$bw_down_pipeno = $pipeno + 1;
+	//$bw_up /= 1000; // Scale to Kbit/s
+	$_gb = @pfSense_pipe_action("pipe {$bw_up_pipeno} config bw {$bw_up}Kbit/s queue 100 buckets 16");
+	$_gb = @pfSense_pipe_action("pipe {$bw_down_pipeno} config bw {$bw_down}Kbit/s queue 100 buckets 16");
+
+	//
+	$clientsn = (is_ipaddrv6($clientip)) ? 128 : 32;
+	if (!isset($config['captiveportal'][$cpzone]['nomacfilter']))
+		$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 1, $clientip, $clientsn, $clientmac, $bw_up_pipeno);
+	else
+		$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 1, $clientip, $clientsn, NULL, $bw_up_pipeno);
+
+	if (!isset($config['captiveportal'][$cpzone]['nomacfilter']))
+		$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 2, $clientip, $clientsn, $clientmac, $bw_down_pipeno);
+	else
+		$_gb = @pfSense_ipfw_Tableaction($cpzone, IP_FW_TABLE_ADD, 2, $clientip, $clientsn, NULL, $bw_down_pipeno);
 }
 
 /**
